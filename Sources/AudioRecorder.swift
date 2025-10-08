@@ -5,10 +5,13 @@ extension Notification.Name {
     /// Posted by AudioRecorder when the .stop() call finishes writing the file
     static let didFinishRecording = Notification.Name("AudioRecorderDidFinishRecording")
     static let recordingError = Notification.Name("AudioRecorderRecordingError")
+    static let recordingStarted = Notification.Name("AudioRecorderRecordingStarted")
 }
 
 /// Observable helper that wraps `AVAudioRecorder`
 final class AudioRecorder: NSObject, ObservableObject {
+    static let shared = AudioRecorder()
+
     @Published var isRecording = false
     private var recorder: AVAudioRecorder?
     private var resetPending = false
@@ -16,6 +19,8 @@ final class AudioRecorder: NSObject, ObservableObject {
 
     /// Where the next file will be written
     private(set) var outputURL: URL?
+
+    private override init() {}
 
     /// Start a new recording
     private func getRecordingDir() -> URL {
@@ -61,6 +66,8 @@ final class AudioRecorder: NSObject, ObservableObject {
         startTimestamp = GenericHelper.getUnixTimestamp()
         outputURL   = fileURL
         isRecording = true
+
+        NotificationCenter.default.post(name: .recordingStarted, object: nil)
     }
 
     func getLevel() -> Float {

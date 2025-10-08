@@ -131,7 +131,44 @@ struct SettingsView: View {
                     }
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
-                    
+                     
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recording Overlay")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Toggle("Display Recording Overlay", isOn: Binding(
+                                get: { settings.displayRecordingOverlay },
+                                set: { newValue in
+                                    settings.displayRecordingOverlay = newValue
+                                }
+                            ))
+                            
+                            if settings.displayRecordingOverlay {
+                                Picker("Overlay Position", selection: Binding(
+                                    get: { settings.overlayPosition },
+                                    set: { newValue in
+                                        settings.overlayPosition = newValue
+                                    }
+                                )) {
+                                    Text("Top Left").tag("topLeft")
+                                    Text("Top Right").tag("topRight")
+                                    Text("Bottom Left").tag("bottomLeft")
+                                    Text("Bottom Right").tag("bottomRight")
+                                }
+                                .pickerStyle(.menu)
+                            }
+                            
+                            Text("Show a small overlay with audio visualization when recording starts.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                    }
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+                     
                     GroupBox {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Storage Management")

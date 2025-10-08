@@ -66,7 +66,6 @@ struct WhisperClip: App {
                     // …and becomes frontmost so windows get key events
                     NSApp.activate(ignoringOtherApps: true)
 
-
                     // Show onboarding on first launch
                     if !SettingsStore.shared.hasCompletedOnboarding {
                         setActiveSheet(sheet: .onboarding)
@@ -76,6 +75,11 @@ struct WhisperClip: App {
                     }
 
                     if !showPermissionAlert && SettingsStore.shared.hasCompletedOnboarding {
+                        if SettingsStore.shared.startMinimized {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                NSApp.windows.first?.miniaturize(nil)
+                            }
+                        }
                     }
                 }
                 .alert("Required Permissions", isPresented: $showPermissionAlert) {

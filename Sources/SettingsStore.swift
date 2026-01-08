@@ -185,9 +185,6 @@ class SettingsStore: ObservableObject {
         hotkeyKey = DefaultSettings.hotkeyKey
         prompts = DefaultSettings.prompts
         selectedPromptId = DefaultSettings.selectedPromptId
-        
-        // Force synchronize UserDefaults to ensure persistence
-        defaults.synchronize()
     }
 
 }

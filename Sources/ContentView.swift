@@ -15,15 +15,13 @@ struct ContentView: View {
     @StateObject private var hotkeyManager = HotkeyManager.shared
     @StateObject private var settings = SettingsStore.shared
     @State private var recordingTimer: Timer? = nil
-    @State private var transcriptionUpdateTimer: Timer? = nil
-    @State private var isFullScreen: Bool = false
 
     init() {
     }
 
     var body: some View {
         ZStack {
-            (isFullScreen ? Color.black : Color.black)
+            Color.black
                 .ignoresSafeArea()
             VStack(spacing: 20) {
                 WaveformView(audio: audio)
@@ -146,7 +144,6 @@ struct ContentView: View {
             }
             .padding(40)
         }
-        .overlay(WindowAccessor(isFullScreen: $isFullScreen).frame(width: 0, height: 0))
         .frame(minWidth: 400, minHeight: 500)
         .foregroundColor(.white)
         .onAppear {
@@ -186,7 +183,6 @@ struct ContentView: View {
             Logger.log("Stopping recording", log: Logger.audio)
             recordingTimer?.invalidate()
             recordingTimer = nil
-            stopTranscriptionUpdates()
             audio.stop()
         } else {
             if isProcessing {
@@ -198,7 +194,6 @@ struct ContentView: View {
             do {
                 try audio.start()
                 isProcessing = true
-                startTranscriptionUpdates()
 
                 // Start auto-stop timer
                 Logger.log("Starting auto-stop timer", log: Logger.audio)
@@ -277,19 +272,6 @@ struct ContentView: View {
         }
     }
 
-    private func startTranscriptionUpdates() {
-        // Update transcription text every 200ms during processing
-        transcriptionUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in
-            DispatchQueue.main.async {
-            }
-        }
-    }
-
-    private func stopTranscriptionUpdates() {
-        transcriptionUpdateTimer?.invalidate()
-        transcriptionUpdateTimer = nil
-    }
-
     private func resetState(message: String? = nil, status: String? = nil, error: String? = nil) {
         resultText = message ?? ""
         statusMessage = status ?? ""
@@ -298,7 +280,6 @@ struct ContentView: View {
         isTranscribing = false
         recordingTimer?.invalidate()
         recordingTimer = nil
-        stopTranscriptionUpdates()
         audio.reset()
     }
 
@@ -318,55 +299,5 @@ struct ContentView: View {
         self.resultText = text
         self.statusMessage = "✓ Copied to clipboard \(pasted ? "✓ Auto pasted" : "")\(pasted && settings.autoEnter ? " ✓ Auto enter" : "")"
         self.errorMessage = ""
-    }
-}
-
-// Helper to access NSWindow and observe full screen changes
-private struct WindowAccessor: NSViewRepresentable {
-    @Binding var isFullScreen: Bool
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            if let window = view.window {
-                context.coordinator.observe(window: window)
-            }
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        if let window = nsView.window {
-            context.coordinator.observe(window: window)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(isFullScreen: $isFullScreen)
-    }
-
-    class Coordinator: NSObject, NSWindowDelegate {
-        var isFullScreen: Binding<Bool>
-        private var observedWindow: NSWindow?
-
-        init(isFullScreen: Binding<Bool>) {
-            self.isFullScreen = isFullScreen
-        }
-
-        func observe(window: NSWindow) {
-            if observedWindow !== window {
-                observedWindow?.delegate = nil
-                observedWindow = window
-                window.delegate = self
-                isFullScreen.wrappedValue = (window.styleMask.contains(.fullScreen))
-            }
-        }
-
-        func windowDidEnterFullScreen(_ notification: Notification) {
-            isFullScreen.wrappedValue = true
-        }
-        func windowDidExitFullScreen(_ notification: Notification) {
-            isFullScreen.wrappedValue = false
-        }
     }
 }

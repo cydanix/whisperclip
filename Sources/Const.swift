@@ -53,8 +53,8 @@ let MinimalFreeDiskSpace = GigaByte * Int64(20)
 
 let RecordingAutoStopIntervalSeconds = 10 * 60
 
-let CurrentTTSModelRepo = WhisperKitRepo;
-let CurrentTTSModelName = OpenAI_Whisper_Large_V3_V20240930_Turbo_632MB;
+let CurrentSTTModelRepo = WhisperKitRepo;
+let CurrentSTTModelName = OpenAI_Whisper_Large_V3_V20240930_Turbo_632MB;
 
 let CurrentLLMModelRepo = MlxCommunityRepo;
 let CurrentLLMModelName = Qwen3_4B_4bit;

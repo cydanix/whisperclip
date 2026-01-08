@@ -75,8 +75,6 @@ struct WhisperClip: App {
                         showPermissionAlert = true
                     }
 
-                    if !showPermissionAlert && SettingsStore.shared.hasCompletedOnboarding {
-                    }
                 }
                 .alert("Required Permissions", isPresented: $showPermissionAlert) {
                     Button("Open Setup Guide") {

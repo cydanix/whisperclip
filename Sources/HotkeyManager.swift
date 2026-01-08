@@ -88,8 +88,9 @@ class HotkeyManager: ObservableObject {
 // Static callback function
 private func hotkeyCallback(proxy: CGEventTapProxy, type: CGEventType, cgEvent: CGEvent, refcon: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
     guard type == .keyDown else { return Unmanaged.passUnretained(cgEvent) }
+    guard let refcon = refcon else { return Unmanaged.passUnretained(cgEvent) }
 
-    let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon!).takeUnretainedValue()
+    let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
     let event = NSEvent(cgEvent: cgEvent)
 
     if let modifier = manager.currentModifier,

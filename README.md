@@ -10,7 +10,7 @@
 [![macOS](https://img.shields.io/badge/macOS-14%2B-blue.svg)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.10-orange.svg)](https://swift.org)
 
-[Website](https://whisperclip.com) • [Download](https://whisperclip.com/v2/download) • [Support](mailto:support@cydanix.com)
+[Website](https://whisperclip.com) • [Download](https://whisperclip.com/v2/download) • [Changelog](changelog.md) • [Support](mailto:support@cydanix.com)
 
 </div>
 
@@ -38,15 +38,18 @@
 
 ### ⚡ **Productivity Features**
 - Global hotkey support (Option+Space by default)
+- **Hold to Talk mode** - hold hotkey to record, release to stop
 - Auto-copy to clipboard
 - Auto-paste functionality
 - Auto-enter for instant message sending
 - Menu bar integration
+- Start minimized option
 - Auto-stop recording after 10 minutes
 
 ### 🎨 **User Experience**
 - Beautiful dark-themed interface
 - Real-time recording visualization
+- Recording overlay with customizable position
 - Comprehensive onboarding guide
 - Easy model management and downloads
 - Customizable shortcuts and prompts
@@ -195,7 +198,7 @@ WhisperClip is developed by **Cydanix LLC**.
 
 - **Website**: [whisperclip.com](https://whisperclip.com)
 - **Support**: [support@cydanix.com](mailto:support@cydanix.com)
-- **Version**: 1.0.43
+- **Version**: 1.0.45
 
 ## 🙏 Acknowledgments
 

@@ -4,13 +4,15 @@ import AppKit
 import Combine
 
 struct ContentView: View {
-    @StateObject private var audio = AudioRecorder()
+    @ObservedObject private var audio = AudioRecorder.shared
     @State private var resultText: String = ""
     @State private var isProcessing: Bool = false
     @State private var isTranscribing: Bool = false
     @State private var showShareSheet: Bool = false
     @State private var statusMessage: String = ""
     @State private var errorMessage: String = ""
+    @State private var startedByHotkey = false
+    @State private var overlayShown = false
 
     @StateObject private var hotkeyManager = HotkeyManager.shared
     @StateObject private var settings = SettingsStore.shared
@@ -150,6 +152,7 @@ struct ContentView: View {
             Logger.log("ContentView appeared", log: Logger.general)
             hotkeyManager.setAction(action: {
                 Logger.log("Hotkey action triggered", log: Logger.hotkey)
+                self.startedByHotkey = true
                 self.toggleRecording()
             })
             hotkeyManager.updateSystemHotkey(
@@ -158,7 +161,19 @@ struct ContentView: View {
                 keyCode: settings.hotkeyKey
             )
         }
+        .onReceive(NotificationCenter.default.publisher(for: .recordingStarted)) { _ in
+            if startedByHotkey && settings.displayRecordingOverlay {
+                RecordingOverlayManager.shared.show()
+                overlayShown = true
+            }
+            startedByHotkey = false
+        }
         .onReceive(NotificationCenter.default.publisher(for: .didFinishRecording)) { notif in
+            if overlayShown {
+                RecordingOverlayManager.shared.hide()
+                overlayShown = false
+            }
+
             if let fileUrl = notif.object as? URL {
                 if !GenericHelper.fileExists(file: fileUrl) {
                     Logger.log("Recording file \(fileUrl.path) not found", log: Logger.audio, type: .error)
@@ -170,6 +185,11 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .recordingError)) { notif in
+            if overlayShown {
+                RecordingOverlayManager.shared.hide()
+                overlayShown = false
+            }
+
             if let error = notif.object as? String {
                 Logger.log("Recording error: \(error)", log: Logger.audio, type: .error)
                 resetState(error: "Recording failed. \(error)")

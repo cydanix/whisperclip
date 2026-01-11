@@ -19,6 +19,8 @@ struct DefaultSettings {
     static let language = "auto"
     static let autoEnter = false
     static let startMinimized = false
+    static let displayRecordingOverlay = false
+    static let overlayPosition = "topRight"
     static let hotkeyEnabled = true
     static let hotkeyModifier = NSEvent.ModifierFlags.option
     static let hotkeyKey: UInt16 = 49 // Space key
@@ -38,6 +40,8 @@ class SettingsStore: ObservableObject {
         case language = "language"
         case autoEnter = "autoEnter"
         case startMinimized = "startMinimized"
+        case displayRecordingOverlay = "displayRecordingOverlay"
+        case overlayPosition = "overlayPosition"
         case hotkeyEnabled = "hotkeyEnabled"
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
@@ -68,6 +72,18 @@ class SettingsStore: ObservableObject {
     @Published var startMinimized: Bool = DefaultSettings.startMinimized {
         didSet {
             defaults.set(startMinimized, forKey: Keys.startMinimized.rawValue)
+        }
+    }
+
+    @Published var displayRecordingOverlay: Bool = DefaultSettings.displayRecordingOverlay {
+        didSet {
+            defaults.set(displayRecordingOverlay, forKey: Keys.displayRecordingOverlay.rawValue)
+        }
+    }
+
+    @Published var overlayPosition: String = DefaultSettings.overlayPosition {
+        didSet {
+            defaults.set(overlayPosition, forKey: Keys.overlayPosition.rawValue)
         }
     }
 
@@ -121,6 +137,8 @@ class SettingsStore: ObservableObject {
         self.language = defaults.string(forKey: Keys.language.rawValue) ?? DefaultSettings.language
         self.autoEnter = defaults.object(forKey: Keys.autoEnter.rawValue) == nil ? DefaultSettings.autoEnter : defaults.bool(forKey: Keys.autoEnter.rawValue)
         self.startMinimized = defaults.object(forKey: Keys.startMinimized.rawValue) == nil ? DefaultSettings.startMinimized : defaults.bool(forKey: Keys.startMinimized.rawValue)
+        self.displayRecordingOverlay = defaults.object(forKey: Keys.displayRecordingOverlay.rawValue) == nil ? DefaultSettings.displayRecordingOverlay : defaults.bool(forKey: Keys.displayRecordingOverlay.rawValue)
+        self.overlayPosition = defaults.string(forKey: Keys.overlayPosition.rawValue) ?? DefaultSettings.overlayPosition
         self.hotkeyEnabled = defaults.object(forKey: Keys.hotkeyEnabled.rawValue) == nil ? DefaultSettings.hotkeyEnabled : defaults.bool(forKey: Keys.hotkeyEnabled.rawValue)
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
@@ -190,6 +208,8 @@ class SettingsStore: ObservableObject {
         language = DefaultSettings.language
         autoEnter = DefaultSettings.autoEnter
         startMinimized = DefaultSettings.startMinimized
+        displayRecordingOverlay = DefaultSettings.displayRecordingOverlay
+        overlayPosition = DefaultSettings.overlayPosition
         hotkeyEnabled = DefaultSettings.hotkeyEnabled
         hotkeyModifier = DefaultSettings.hotkeyModifier
         hotkeyKey = DefaultSettings.hotkeyKey

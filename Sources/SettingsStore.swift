@@ -36,6 +36,7 @@ class SettingsStore: ObservableObject {
         case hasCompletedOnboarding = "hasCompletedOnboarding"
         case language = "language"
         case autoEnter = "autoEnter"
+        case startMinimized = "startMinimized"
         case hotkeyEnabled = "hotkeyEnabled"
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
@@ -60,6 +61,12 @@ class SettingsStore: ObservableObject {
     @Published var autoEnter: Bool = DefaultSettings.autoEnter {
         didSet {
             defaults.set(autoEnter, forKey: Keys.autoEnter.rawValue)
+        }
+    }
+    
+    @Published var startMinimized: Bool = false {
+        didSet {
+            defaults.set(startMinimized, forKey: Keys.startMinimized.rawValue)
         }
     }
     
@@ -112,6 +119,7 @@ class SettingsStore: ObservableObject {
         self.hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding.rawValue) == nil ? DefaultSettings.hasCompletedOnboarding : defaults.bool(forKey: Keys.hasCompletedOnboarding.rawValue)
         self.language = defaults.string(forKey: Keys.language.rawValue) ?? DefaultSettings.language
         self.autoEnter = defaults.object(forKey: Keys.autoEnter.rawValue) == nil ? DefaultSettings.autoEnter : defaults.bool(forKey: Keys.autoEnter.rawValue)
+        self.startMinimized = defaults.bool(forKey: Keys.startMinimized.rawValue)
         self.hotkeyEnabled = defaults.object(forKey: Keys.hotkeyEnabled.rawValue) == nil ? DefaultSettings.hotkeyEnabled : defaults.bool(forKey: Keys.hotkeyEnabled.rawValue)
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
@@ -180,6 +188,7 @@ class SettingsStore: ObservableObject {
         hasCompletedOnboarding = DefaultSettings.hasCompletedOnboarding
         language = DefaultSettings.language
         autoEnter = DefaultSettings.autoEnter
+        startMinimized = false
         hotkeyEnabled = DefaultSettings.hotkeyEnabled
         hotkeyModifier = DefaultSettings.hotkeyModifier
         hotkeyKey = DefaultSettings.hotkeyKey

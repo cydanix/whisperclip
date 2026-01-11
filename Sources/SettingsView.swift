@@ -126,6 +126,19 @@ struct SettingsView: View {
                             Text("Automatically press Enter after pasting transcribed text into the active application.")
                                 .font(.caption)
                                 .foregroundColor(.gray)
+                            
+                            Divider()
+                            
+                            Toggle("Start minimized", isOn: Binding(
+                                get: { settings.startMinimized },
+                                set: { newValue in
+                                    settings.startMinimized = newValue
+                                }
+                            ))
+                            
+                            Text("Minimize the app window automatically when launched.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
                         }
                         .padding()
                     }

@@ -171,6 +171,28 @@ struct SettingsView: View {
                      
                     GroupBox {
                         VStack(alignment: .leading, spacing: 12) {
+                            Text("Startup Behavior")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Toggle("Start minimized", isOn: Binding(
+                                get: { settings.startMinimized },
+                                set: { newValue in
+                                    settings.startMinimized = newValue
+                                }
+                            ))
+
+                            Text("Start the application minimized to the Dock.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                    }
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
+
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Storage Management")
                                 .font(.headline)
                                 .foregroundColor(.white)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG=${1:-Debug}
+CONFIG=${1:-Release}
 
 ./local_build.sh $CONFIG
 

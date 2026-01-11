@@ -11,8 +11,8 @@ class VoiceToTextModel: VoiceToTextProtocol {
 
     func load() async throws {
 
-        if self.pipe == nil{
-            self.pipe = try await LocalWhisperKit.loadModel(modelRepo: CurrentTTSModelRepo, modelName: CurrentTTSModelName)
+        if self.pipe == nil {
+            self.pipe = try await LocalWhisperKit.loadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
         }
 
         if self.pipe == nil {
@@ -36,7 +36,7 @@ class VoiceToTextModel: VoiceToTextProtocol {
             audioPath: filepath,
             decodeOptions: DecodingOptions(
                 language: languageCode,
-                usePrefillPrompt: language == "auto",
+                usePrefillPrompt: true,
                 detectLanguage: language == "auto"
             )
         )

@@ -4,10 +4,31 @@ import MLXLMCommon
 import MLX
 
 class LocalLLM {
+    private static var gpuCacheLimitSet = false
+    
+    /// Calculate GPU cache limit based on available system memory.
+    /// Uses ~7% of total memory, clamped between 32MB and 4GB.
+    private static func calculateGPUCacheLimit() -> Int {
+        let totalMemory = ProcessInfo.processInfo.physicalMemory
+        let cacheLimit = Int(Double(totalMemory) * 0.07)
+        let minCache = 32 * 1024 * 1024           // 32 MB
+        let maxCache = 4 * 1024 * 1024 * 1024     // 4 GB
+        return min(max(cacheLimit, minCache), maxCache)
+    }
+    
+    private static func setupGPUCacheLimitOnce() {
+        guard !gpuCacheLimitSet else { return }
+        gpuCacheLimitSet = true
+        
+        let cacheLimit = calculateGPUCacheLimit()
+        MLX.GPU.set(cacheLimit: cacheLimit)
+        Logger.log("GPU cache limit set to \(GenericHelper.formatSize(size: Int64(cacheLimit)))", log: Logger.general)
+    }
+    
     static func loadModel(modelRepo: String, modelName: String) async throws -> ModelContainer {
         let modelPath = try await ModelStorage.shared.getModelPath(modelRepo: modelRepo, modelName: modelName)
 
-        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
+        setupGPUCacheLimitOnce()
 
         Logger.log("Loading model \(modelRepo)/\(modelName)", log: Logger.general)
 

@@ -18,6 +18,7 @@ struct DefaultSettings {
     static let hasCompletedOnboarding = false
     static let language = "auto"
     static let autoEnter = false
+    static let startMinimized = false
     static let hotkeyEnabled = true
     static let hotkeyModifier = NSEvent.ModifierFlags.option
     static let hotkeyKey: UInt16 = 49 // Space key
@@ -36,6 +37,7 @@ class SettingsStore: ObservableObject {
         case hasCompletedOnboarding = "hasCompletedOnboarding"
         case language = "language"
         case autoEnter = "autoEnter"
+        case startMinimized = "startMinimized"
         case hotkeyEnabled = "hotkeyEnabled"
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
@@ -63,6 +65,12 @@ class SettingsStore: ObservableObject {
         }
     }
     
+    @Published var startMinimized: Bool = DefaultSettings.startMinimized {
+        didSet {
+            defaults.set(startMinimized, forKey: Keys.startMinimized.rawValue)
+        }
+    }
+
     @Published var hotkeyEnabled: Bool = true {
         didSet {
             defaults.set(hotkeyEnabled, forKey: Keys.hotkeyEnabled.rawValue)
@@ -112,6 +120,7 @@ class SettingsStore: ObservableObject {
         self.hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding.rawValue) == nil ? DefaultSettings.hasCompletedOnboarding : defaults.bool(forKey: Keys.hasCompletedOnboarding.rawValue)
         self.language = defaults.string(forKey: Keys.language.rawValue) ?? DefaultSettings.language
         self.autoEnter = defaults.object(forKey: Keys.autoEnter.rawValue) == nil ? DefaultSettings.autoEnter : defaults.bool(forKey: Keys.autoEnter.rawValue)
+        self.startMinimized = defaults.object(forKey: Keys.startMinimized.rawValue) == nil ? DefaultSettings.startMinimized : defaults.bool(forKey: Keys.startMinimized.rawValue)
         self.hotkeyEnabled = defaults.object(forKey: Keys.hotkeyEnabled.rawValue) == nil ? DefaultSettings.hotkeyEnabled : defaults.bool(forKey: Keys.hotkeyEnabled.rawValue)
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
@@ -180,6 +189,7 @@ class SettingsStore: ObservableObject {
         hasCompletedOnboarding = DefaultSettings.hasCompletedOnboarding
         language = DefaultSettings.language
         autoEnter = DefaultSettings.autoEnter
+        startMinimized = DefaultSettings.startMinimized
         hotkeyEnabled = DefaultSettings.hotkeyEnabled
         hotkeyModifier = DefaultSettings.hotkeyModifier
         hotkeyKey = DefaultSettings.hotkeyKey

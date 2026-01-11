@@ -42,6 +42,8 @@ struct OnboardingView: View {
     @State private var currentStepIndex = 0
     @State private var stepProgress: Double = 0
     @State private var permissionRefreshTimer: Timer?
+    @State private var compilationTimer: Timer?
+    @State private var isCompiling: Bool = false
 
     private static func downloadProgressToStepProgress(downloadProgress: Double) -> Double {
         if downloadProgress > 0.8 {
@@ -53,7 +55,27 @@ struct OnboardingView: View {
         }
     }
 
-    private let allSteps = [
+    private func startCompilationAnimation() {
+        isCompiling = true
+        // Animate progress from 80% towards 99% over time to show activity during compilation
+        compilationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            DispatchQueue.main.async {
+                if stepProgress >= 0.8 && stepProgress < 0.99 && isCompiling {
+                    // Slow asymptotic approach to 99%
+                    let remaining = 0.99 - stepProgress
+                    stepProgress += remaining * 0.02
+                }
+            }
+        }
+    }
+
+    private func stopCompilationAnimation() {
+        isCompiling = false
+        compilationTimer?.invalidate()
+        compilationTimer = nil
+    }
+
+    private var allSteps: [OnboardingStep] { [
         OnboardingStep(
             title: "Welcome to WhisperClip",
             description: "Let's set up the essential permissions and preferences so WhisperClip works smoothly.",
@@ -93,7 +115,7 @@ struct OnboardingView: View {
             imageName: "mic.fill",
             buttonText: "Download",
             source: ModelStorage.shared.getModelFilesUrl(modelID: CurrentSTTModelRepo, subfolder: CurrentSTTModelName),
-            action: { progress in
+            action: { [self] progress in
                 Task {
                     do {
                         let _ = try await ModelStorage.shared.downloadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName, progress: { downloadProgress in
@@ -101,10 +123,13 @@ struct OnboardingView: View {
                             progress(OnboardingView.downloadProgressToStepProgress(downloadProgress: downloadProgress))
                         })
 
+                        await MainActor.run { startCompilationAnimation() }
                         try await ModelStorage.shared.preLoadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
+                        await MainActor.run { stopCompilationAnimation() }
                         progress(1.0)
                     } catch {
                         Logger.log("Failed to download voice-to-text model: \(error)", log: Logger.general, type: .error)
+                        await MainActor.run { stopCompilationAnimation() }
                         do {
                             try ModelStorage.shared.deleteModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         } catch {
@@ -130,7 +155,7 @@ struct OnboardingView: View {
             imageName: "brain.head.profile",
             buttonText: "Download",
             source: ModelStorage.shared.getModelFilesUrl(modelID: CurrentLLMModelRepo + "/" + CurrentLLMModelName, subfolder: ""),
-            action: { progress in
+            action: { [self] progress in
                 Task {
                     let modelID = CurrentLLMModelRepo + "/" + CurrentLLMModelName
                     do {
@@ -139,10 +164,13 @@ struct OnboardingView: View {
                             progress(OnboardingView.downloadProgressToStepProgress(downloadProgress: downloadProgress))
                         })
 
+                        await MainActor.run { startCompilationAnimation() }
                         try await ModelStorage.shared.preLoadModel(modelRepo: modelID, modelName: "")
+                        await MainActor.run { stopCompilationAnimation() }
                         progress(1.0)
                     } catch {
                         Logger.log("Failed to download LLM model: \(error)", log: Logger.general, type: .error)
+                        await MainActor.run { stopCompilationAnimation() }
                         do {
                             try ModelStorage.shared.deleteModel(modelRepo: modelID, modelName: "")
                         } catch {
@@ -224,7 +252,7 @@ struct OnboardingView: View {
             buttonText: "Get Started",
             skipCondition: nil
         )
-    ]
+    ] }
 
 
     private func completeOnboarding() {
@@ -383,6 +411,7 @@ struct OnboardingView: View {
                     Button("Back") {
                         withAnimation {
                             if currentStepIndex > 0 {
+                                stopCompilationAnimation()
                                 currentStepIndex -= 1
                                 stepProgress = 0
                             }
@@ -398,6 +427,7 @@ struct OnboardingView: View {
                     Button("Next") {
                         withAnimation {
                             if currentStepIndex >= 0 && currentStepIndex < allSteps.count - 1 {
+                                stopCompilationAnimation()
                                 currentStepIndex += 1
                                 stepProgress = 0
                             }
@@ -428,6 +458,7 @@ struct OnboardingView: View {
         .onDisappear {
             // Stop the refresh timer when onboarding is dismissed
             stopPermissionRefreshTimer()
+            stopCompilationAnimation()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             // Refresh permissions when app becomes active (user might have granted permission in System Settings)

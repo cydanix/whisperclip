@@ -92,21 +92,21 @@ struct OnboardingView: View {
             """,
             imageName: "mic.fill",
             buttonText: "Download",
-            source: ModelStorage.shared.getModelFilesUrl(modelID: CurrentTTSModelRepo, subfolder: CurrentTTSModelName),
+            source: ModelStorage.shared.getModelFilesUrl(modelID: CurrentSTTModelRepo, subfolder: CurrentSTTModelName),
             action: { progress in
                 Task {
                     do {
-                        let _ = try await ModelStorage.shared.downloadModel(modelRepo: CurrentTTSModelRepo, modelName: CurrentTTSModelName, progress: { downloadProgress in
+                        let _ = try await ModelStorage.shared.downloadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName, progress: { downloadProgress in
                             Logger.log("Downloading voice-to-text model: \(downloadProgress)", log: Logger.general)
                             progress(OnboardingView.downloadProgressToStepProgress(downloadProgress: downloadProgress))
                         })
 
-                        try await ModelStorage.shared.preLoadModel(modelRepo: CurrentTTSModelRepo, modelName: CurrentTTSModelName)
+                        try await ModelStorage.shared.preLoadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         progress(1.0)
                     } catch {
                         Logger.log("Failed to download voice-to-text model: \(error)", log: Logger.general, type: .error)
                         do {
-                            try ModelStorage.shared.deleteModel(modelRepo: CurrentTTSModelRepo, modelName: CurrentTTSModelName)
+                            try ModelStorage.shared.deleteModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         } catch {
                             Logger.log("Failed to delete voice-to-text model: \(error)", log: Logger.general, type: .error)
                         }
@@ -114,8 +114,8 @@ struct OnboardingView: View {
                 }
             },
             skipCondition: {
-                ModelStorage.shared.modelExists(modelRepo: CurrentTTSModelRepo, modelName: CurrentTTSModelName) &&
-                ModelStorage.shared.isModelLoaded(modelRepo: CurrentTTSModelRepo, modelName: CurrentTTSModelName)
+                ModelStorage.shared.modelExists(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) &&
+                ModelStorage.shared.isModelLoaded(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
             },
             progressBar: true
         ),

@@ -312,6 +312,28 @@ struct SettingsView: View {
                     }
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
+
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Recording Mode")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Toggle("Hold to talk", isOn: Binding(
+                                get: { settings.holdToTalk },
+                                set: { newValue in
+                                    settings.holdToTalk = newValue
+                                }
+                            ))
+
+                            Text("When enabled, hold the hotkey to record and release to stop. When disabled, press once to start and again to stop.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                    }
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
                 }
                 .padding()
             }

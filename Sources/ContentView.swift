@@ -151,9 +151,28 @@ struct ContentView: View {
         .onAppear {
             Logger.log("ContentView appeared", log: Logger.general)
             hotkeyManager.setAction(action: {
-                Logger.log("Hotkey action triggered", log: Logger.hotkey)
-                self.startedByHotkey = true
-                self.toggleRecording()
+                Logger.log("Hotkey action triggered (keyDown)", log: Logger.hotkey)
+                if settings.holdToTalk {
+                    // Hold-to-talk: start recording on key down
+                    if !audio.isRecording && !isProcessing {
+                        self.startedByHotkey = true
+                        self.startRecording()
+                    }
+                } else {
+                    // Toggle mode: toggle recording on key down
+                    self.startedByHotkey = true
+                    self.toggleRecording()
+                }
+            })
+            hotkeyManager.setKeyUpAction(action: {
+                Logger.log("Hotkey action triggered (keyUp)", log: Logger.hotkey)
+                if settings.holdToTalk {
+                    // Hold-to-talk: stop recording on key up
+                    if audio.isRecording {
+                        self.stopRecording()
+                    }
+                }
+                // Toggle mode: do nothing on key up
             })
             hotkeyManager.updateSystemHotkey(
                 hotkeyEnabled: settings.hotkeyEnabled,
@@ -200,36 +219,44 @@ struct ContentView: View {
     private func toggleRecording() {
         Logger.log("Toggling recording... ", log: Logger.audio)
         if audio.isRecording {
-            Logger.log("Stopping recording", log: Logger.audio)
-            recordingTimer?.invalidate()
-            recordingTimer = nil
-            audio.stop()
+            stopRecording()
         } else {
-            if isProcessing {
-                Logger.log("Already processing, skipping", log: Logger.audio)
-                return
-            }
-            Logger.log("Starting recording", log: Logger.audio)
-            resetState()
-            do {
-                try audio.start()
-                isProcessing = true
+            startRecording()
+        }
+    }
 
-                // Start auto-stop timer
-                Logger.log("Starting auto-stop timer", log: Logger.audio)
-                recordingTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(RecordingAutoStopIntervalSeconds), repeats: false) { _ in
-                    Logger.log("Auto-stop timer fired", log: Logger.audio)
-                    DispatchQueue.main.async {
-                        if audio.isRecording {
-                            Logger.log("Auto-stopping recording after \(RecordingAutoStopIntervalSeconds) seconds", log: Logger.audio)
-                            audio.stop()
-                        }
+    private func startRecording() {
+        if isProcessing {
+            Logger.log("Already processing, skipping", log: Logger.audio)
+            return
+        }
+        Logger.log("Starting recording", log: Logger.audio)
+        resetState()
+        do {
+            try audio.start()
+            isProcessing = true
+
+            // Start auto-stop timer
+            Logger.log("Starting auto-stop timer", log: Logger.audio)
+            recordingTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(RecordingAutoStopIntervalSeconds), repeats: false) { _ in
+                Logger.log("Auto-stop timer fired", log: Logger.audio)
+                DispatchQueue.main.async {
+                    if audio.isRecording {
+                        Logger.log("Auto-stopping recording after \(RecordingAutoStopIntervalSeconds) seconds", log: Logger.audio)
+                        audio.stop()
                     }
                 }
-            } catch {
-                Logger.log("Start recording failed: \(error)", log: Logger.audio, type: .error)
             }
+        } catch {
+            Logger.log("Start recording failed: \(error)", log: Logger.audio, type: .error)
         }
+    }
+
+    private func stopRecording() {
+        Logger.log("Stopping recording", log: Logger.audio)
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        audio.stop()
     }
 
 

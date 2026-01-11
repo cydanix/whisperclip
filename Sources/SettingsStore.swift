@@ -24,6 +24,7 @@ struct DefaultSettings {
     static let hotkeyEnabled = true
     static let hotkeyModifier = NSEvent.ModifierFlags.option
     static let hotkeyKey: UInt16 = 49 // Space key
+    static let holdToTalk = false
     static let prompts: [Prompt] = [
         Prompt(label: "None", content: ""),
         Prompt(label: "Translate to English", content: "Translate the following text to English:"),
@@ -45,6 +46,7 @@ class SettingsStore: ObservableObject {
         case hotkeyEnabled = "hotkeyEnabled"
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
+        case holdToTalk = "holdToTalk"
         case prompts = "prompts"
         case selectedPromptId = "selectedPromptId"
     }
@@ -105,6 +107,12 @@ class SettingsStore: ObservableObject {
         }
     }
 
+    @Published var holdToTalk: Bool = DefaultSettings.holdToTalk {
+        didSet {
+            defaults.set(holdToTalk, forKey: Keys.holdToTalk.rawValue)
+        }
+    }
+
     @Published var prompts: [Prompt] = [] {
         didSet {
             savePrompts()
@@ -142,6 +150,7 @@ class SettingsStore: ObservableObject {
         self.hotkeyEnabled = defaults.object(forKey: Keys.hotkeyEnabled.rawValue) == nil ? DefaultSettings.hotkeyEnabled : defaults.bool(forKey: Keys.hotkeyEnabled.rawValue)
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
+        self.holdToTalk = defaults.object(forKey: Keys.holdToTalk.rawValue) == nil ? DefaultSettings.holdToTalk : defaults.bool(forKey: Keys.holdToTalk.rawValue)
         self.selectedPromptId = defaults.string(forKey: Keys.selectedPromptId.rawValue) ?? DefaultSettings.selectedPromptId
         
         // Load prompts
@@ -213,6 +222,7 @@ class SettingsStore: ObservableObject {
         hotkeyEnabled = DefaultSettings.hotkeyEnabled
         hotkeyModifier = DefaultSettings.hotkeyModifier
         hotkeyKey = DefaultSettings.hotkeyKey
+        holdToTalk = DefaultSettings.holdToTalk
         prompts = DefaultSettings.prompts
         selectedPromptId = DefaultSettings.selectedPromptId
     }

@@ -4,6 +4,7 @@ import Quartz
 class HotkeyManager: ObservableObject {
     private var eventTap: CFMachPort?
     var action: () -> Void = {}
+    var keyUpAction: () -> Void = {}
     private var runLoopSource: CFRunLoopSource?
     var currentModifier: NSEvent.ModifierFlags?
     var currentKeyCode: UInt16?
@@ -14,6 +15,10 @@ class HotkeyManager: ObservableObject {
 
     func setAction(action: @escaping () -> Void) {
         self.action = action
+    }
+
+    func setKeyUpAction(action: @escaping () -> Void) {
+        self.keyUpAction = action
     }
 
     func setupSystemHotkey(modifier: NSEvent.ModifierFlags, keyCode: UInt16) {
@@ -31,7 +36,7 @@ class HotkeyManager: ObservableObject {
         currentModifier = modifier
         currentKeyCode = keyCode
 
-        let mask = (1 << CGEventType.keyDown.rawValue)
+        let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
         eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
@@ -87,7 +92,7 @@ class HotkeyManager: ObservableObject {
 
 // Static callback function
 private func hotkeyCallback(proxy: CGEventTapProxy, type: CGEventType, cgEvent: CGEvent, refcon: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
-    guard type == .keyDown else { return Unmanaged.passUnretained(cgEvent) }
+    guard type == .keyDown || type == .keyUp else { return Unmanaged.passUnretained(cgEvent) }
     guard let refcon = refcon else { return Unmanaged.passUnretained(cgEvent) }
 
     let manager = Unmanaged<HotkeyManager>.fromOpaque(refcon).takeUnretainedValue()
@@ -99,8 +104,12 @@ private func hotkeyCallback(proxy: CGEventTapProxy, type: CGEventType, cgEvent: 
         event?.keyCode == keyCode {
             // Run action on main thread
             DispatchQueue.main.async {
-            manager.action()
-        }
+                if type == .keyDown {
+                    manager.action()
+                } else if type == .keyUp {
+                    manager.keyUpAction()
+                }
+            }
         return nil  // Swallow the event
     }
 

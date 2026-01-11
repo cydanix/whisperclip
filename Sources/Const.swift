@@ -43,6 +43,7 @@ let WhisperClipAppDir = "/Applications/WhisperClip.app"
 
 let WhisperClipSite = "https://whisperclip.com"
 let WhisperClipCompanyName = "Cydanix LLC"
+let WhisperClipDonateLink = "https://donate.stripe.com/14A3cvayk1vbfys8iUaIM22"
 
 let WhisperClipAppName = "WhisperClip"
 

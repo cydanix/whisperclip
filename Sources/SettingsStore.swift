@@ -25,6 +25,8 @@ struct DefaultSettings {
     static let hotkeyModifier = NSEvent.ModifierFlags.option
     static let hotkeyKey: UInt16 = 49 // Space key
     static let holdToTalk = false
+    static let recordingCount = 0
+    static let donationDialogShown = false
     static let prompts: [Prompt] = [
         Prompt(label: "None", content: ""),
         Prompt(label: "Translate to English", content: "Translate the following text to English:"),
@@ -47,6 +49,8 @@ class SettingsStore: ObservableObject {
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
         case holdToTalk = "holdToTalk"
+        case recordingCount = "recordingCount"
+        case donationDialogShown = "donationDialogShown"
         case prompts = "prompts"
         case selectedPromptId = "selectedPromptId"
     }
@@ -113,6 +117,18 @@ class SettingsStore: ObservableObject {
         }
     }
 
+    @Published var recordingCount: Int = DefaultSettings.recordingCount {
+        didSet {
+            defaults.set(recordingCount, forKey: Keys.recordingCount.rawValue)
+        }
+    }
+
+    @Published var donationDialogShown: Bool = DefaultSettings.donationDialogShown {
+        didSet {
+            defaults.set(donationDialogShown, forKey: Keys.donationDialogShown.rawValue)
+        }
+    }
+
     @Published var prompts: [Prompt] = [] {
         didSet {
             savePrompts()
@@ -151,6 +167,8 @@ class SettingsStore: ObservableObject {
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
         self.holdToTalk = defaults.object(forKey: Keys.holdToTalk.rawValue) == nil ? DefaultSettings.holdToTalk : defaults.bool(forKey: Keys.holdToTalk.rawValue)
+        self.recordingCount = defaults.object(forKey: Keys.recordingCount.rawValue) == nil ? DefaultSettings.recordingCount : defaults.integer(forKey: Keys.recordingCount.rawValue)
+        self.donationDialogShown = defaults.object(forKey: Keys.donationDialogShown.rawValue) == nil ? DefaultSettings.donationDialogShown : defaults.bool(forKey: Keys.donationDialogShown.rawValue)
         self.selectedPromptId = defaults.string(forKey: Keys.selectedPromptId.rawValue) ?? DefaultSettings.selectedPromptId
         
         // Load prompts

@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var errorMessage: String = ""
     @State private var startedByHotkey = false
     @State private var overlayShown = false
+    @State private var showDonationDialog = false
 
     @StateObject private var hotkeyManager = HotkeyManager.shared
     @StateObject private var settings = SettingsStore.shared
@@ -214,6 +215,9 @@ struct ContentView: View {
                 resetState(error: "Recording failed. \(error)")
             }
         }
+        .sheet(isPresented: $showDonationDialog) {
+            DonationDialog()
+        }
     }
 
     private func toggleRecording() {
@@ -346,5 +350,15 @@ struct ContentView: View {
         self.resultText = text
         self.statusMessage = "✓ Copied to clipboard \(pasted ? "✓ Auto pasted" : "")\(pasted && settings.autoEnter ? " ✓ Auto enter" : "")"
         self.errorMessage = ""
+
+        // Increment recording count and check for donation dialog (only for meaningful recordings)
+        if text.count >= 20 {
+            settings.recordingCount += 1
+        }
+        if settings.recordingCount >= 10 && !settings.donationDialogShown {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.showDonationDialog = true
+            }
+        }
     }
 }

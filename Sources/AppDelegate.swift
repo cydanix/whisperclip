@@ -25,6 +25,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Show \(WhisperClipAppName)", action: #selector(showApp), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Donate ❤️", action: #selector(openDonate), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem?.menu = menu
@@ -32,6 +34,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showApp() {
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func openDonate() {
+        if let url = URL(string: WhisperClipDonateLink) {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func setupSignalHandlers() {

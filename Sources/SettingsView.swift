@@ -22,6 +22,11 @@ struct SettingsView: View {
     // Delete models confirmation state
     @State private var showingDeleteModelsConfirmation = false
     
+    // Parakeet download state
+    @State private var isDownloadingParakeet = false
+    @State private var parakeetDownloadProgress: Double = 0
+    @State private var parakeetModelExists = false
+    
     // Language options
     private let languageOptions = [
         ("auto", "Auto Detect"),
@@ -85,30 +90,9 @@ struct SettingsView: View {
             // General Settings Tab
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Transcription Language")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Picker("Language", selection: $selectedLanguage) {
-                                ForEach(languageOptions, id: \.0) { option in
-                                    Text(option.1).tag(option.0)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .onChange(of: selectedLanguage) { _, newValue in
-                                settings.language = newValue
-                            }
-                            
-                            Text("Select the language for speech recognition. Auto Detect will try to identify the language automatically.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+                    sttEngineSection
+                    
+                    languageSection
                     
                     GroupBox {
                         VStack(alignment: .leading, spacing: 12) {
@@ -472,6 +456,146 @@ struct SettingsView: View {
             selectedKeyCode = newValue
             hotkeyKeyString = keyCodeToString(newValue)
         }
+    }
+    
+    // MARK: - View Sections
+    
+    private var sttEngineSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Speech-to-Text Engine")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Picker("Engine", selection: $settings.sttEngine) {
+                    ForEach(STTEngine.allCases, id: \.self) { engine in
+                        Text(engine.displayName).tag(engine)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(isDownloadingParakeet)
+                .onChange(of: settings.sttEngine) { _, newValue in
+                    // Refresh model status when engine changes
+                    refreshParakeetModelStatus()
+                    
+                    // If Parakeet selected but not supported, switch back to WhisperKit
+                    if newValue == .parakeet && !LocalParakeet.isSupported() {
+                        settings.sttEngine = .whisperKit
+                        return
+                    }
+                    
+                    // Warn if Parakeet selected but not downloaded
+                    if newValue == .parakeet && !parakeetModelExists && !isDownloadingParakeet {
+                        // Could show alert here, but for now just refresh status
+                        refreshParakeetModelStatus()
+                    }
+                }
+                
+                // Show Parakeet download section if not downloaded and supported
+                if !parakeetModelExists && LocalParakeet.isSupported() {
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Parakeet model not downloaded")
+                                .font(.subheadline)
+                                .foregroundColor(.orange)
+                        }
+                        
+                        if isDownloadingParakeet {
+                            VStack(spacing: 4) {
+                                ProgressView(value: parakeetDownloadProgress)
+                                    .progressViewStyle(.linear)
+                                
+                                Text("Downloading... \(Int(parakeetDownloadProgress * 100))%")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        } else {
+                            Button("Download Parakeet Model") {
+                                downloadParakeetModel()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+                
+                if LocalParakeet.isSupported() {
+                    Text("Both engines support multiple languages. Parakeet uses CoreML/ANE for fast inference.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                } else {
+                    Text("Parakeet requires Apple Silicon. WhisperKit works on all Macs.")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding()
+        }
+        .background(Color.gray.opacity(0.2))
+        .cornerRadius(8)
+        .onAppear {
+            refreshParakeetModelStatus()
+        }
+    }
+    
+    private func refreshParakeetModelStatus() {
+        parakeetModelExists = ModelStorage.shared.parakeetModelsExist()
+    }
+    
+    private func downloadParakeetModel() {
+        isDownloadingParakeet = true
+        parakeetDownloadProgress = 0
+        
+        Task {
+            do {
+                try await ModelStorage.shared.downloadParakeetModels { progress in
+                    DispatchQueue.main.async {
+                        parakeetDownloadProgress = progress
+                    }
+                }
+                await MainActor.run {
+                    refreshParakeetModelStatus()
+                    isDownloadingParakeet = false
+                }
+            } catch {
+                Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
+                await MainActor.run {
+                    refreshParakeetModelStatus()
+                    isDownloadingParakeet = false
+                    parakeetDownloadProgress = 0
+                }
+            }
+        }
+    }
+    
+    private var languageSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Transcription Language")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Picker("Language", selection: $selectedLanguage) {
+                    ForEach(languageOptions, id: \.0) { option in
+                        Text(option.1).tag(option.0)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedLanguage) { _, newValue in
+                    settings.language = newValue
+                }
+                
+                Text("Select the language for speech recognition. Auto Detect will try to identify the language automatically.")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            .padding()
+        }
+        .background(Color.gray.opacity(0.2))
+        .cornerRadius(8)
     }
     
     private func loadCurrentSettings() {

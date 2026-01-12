@@ -59,3 +59,20 @@ let CurrentSTTModelName = OpenAI_Whisper_Large_V3_V20240930_Turbo_632MB;
 
 let CurrentLLMModelRepo = MlxCommunityRepo;
 let CurrentLLMModelName = Qwen3_4B_4bit;
+
+// Parakeet model constants
+let ParakeetModelRepo = "FluidInference"
+let ParakeetModelName = "parakeet-tdt-0.6b-v3-coreml"
+
+// Speech-to-Text Engine options
+enum STTEngine: String, CaseIterable {
+    case whisperKit = "whisperKit"
+    case parakeet = "parakeet"
+
+    var displayName: String {
+        switch self {
+        case .whisperKit: return "WhisperKit"
+        case .parakeet: return "Parakeet"
+        }
+    }
+}

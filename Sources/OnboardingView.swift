@@ -13,6 +13,7 @@ struct OnboardingStep {
     let action: ((@escaping (Double) -> Void) -> Void)?
     let skipCondition: (() -> Bool)?
     let progressBar: Bool
+    let canSkip: Bool
 
     init(
         title: String,
@@ -22,7 +23,8 @@ struct OnboardingStep {
         source: String? = nil,
         action: ((@escaping (Double) -> Void) -> Void)? = nil,
         skipCondition: (() -> Bool)? = nil,
-        progressBar: Bool = false
+        progressBar: Bool = false,
+        canSkip: Bool = false
     ) {
         self.title = title
         self.description = description
@@ -32,6 +34,7 @@ struct OnboardingStep {
         self.action = action
         self.skipCondition = skipCondition
         self.progressBar = progressBar
+        self.canSkip = canSkip
     }
 }
 
@@ -81,7 +84,8 @@ struct OnboardingView: View {
             description: "Let's set up the essential permissions and preferences so WhisperClip works smoothly.",
             imageName: "waveform.circle.fill",
             buttonText: "Next",
-            skipCondition: nil
+            skipCondition: nil,
+            canSkip: false
         ),
         OnboardingStep(
             title: "Move to Applications",
@@ -102,15 +106,16 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 FileManager.default.fileExists(atPath: WhisperClipAppDir)
-            }
+            },
+            canSkip: false
         ),
         OnboardingStep(
-            title: "Download Voice-To-Text Model",
+            title: "Download Voice-To-Text Model (Optional)",
             description: """
-            Required for:
-            • Voice-to-text
+            Optional for:
+            • Voice-to-text transcription
 
-            Click "Download" to download the model.
+            Click "Download" to download the model, or "Skip" to download later from Settings.
             """,
             imageName: "mic.fill",
             buttonText: "Download",
@@ -126,7 +131,11 @@ struct OnboardingView: View {
                         await MainActor.run { startCompilationAnimation() }
                         try await ModelStorage.shared.preLoadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         await MainActor.run { stopCompilationAnimation() }
-                        progress(1.0)
+                        await MainActor.run {
+                            // Set STT engine to WhisperKit since model was successfully downloaded
+                            settings.sttEngine = .whisperKit
+                            progress(1.0)
+                        }
                     } catch {
                         Logger.log("Failed to download voice-to-text model: \(error)", log: Logger.general, type: .error)
                         await MainActor.run { stopCompilationAnimation() }
@@ -142,15 +151,16 @@ struct OnboardingView: View {
                 ModelStorage.shared.modelExists(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) &&
                 ModelStorage.shared.isModelLoaded(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
             },
-            progressBar: true
+            progressBar: true,
+            canSkip: true
         ),
         OnboardingStep(
-            title: "Download LLM Model",
+            title: "Download LLM Model (Optional)",
             description: """
-            Required for:
-            • Text-enhancing
+            Optional for:
+            • Text-enhancing and prompts
 
-            Click "Download" to download the model.
+            Click "Download" to download the model, or "Skip" to download later from Settings.
             """,
             imageName: "brain.head.profile",
             buttonText: "Download",
@@ -183,7 +193,70 @@ struct OnboardingView: View {
                 ModelStorage.shared.modelExists(modelRepo: CurrentLLMModelRepo + "/" + CurrentLLMModelName, modelName: "") &&
                 ModelStorage.shared.isModelLoaded(modelRepo: CurrentLLMModelRepo + "/" + CurrentLLMModelName, modelName: "")
             },
-            progressBar: true
+            progressBar: true,
+            canSkip: true
+        ),
+        OnboardingStep(
+            title: "Download Parakeet Model (Optional)",
+            description: LocalParakeet.isSupported() ? """
+            Optional alternative voice-to-text engine:
+            • Optimized for Apple Neural Engine
+            • Supports 25 European languages
+            • Fast inference on Apple Silicon
+
+            You can skip this and download later from Settings.
+            """ : """
+            Parakeet is not available on Intel Macs.
+            This feature requires Apple Silicon.
+
+            You can skip this step.
+            """,
+            imageName: "waveform.badge.plus",
+            buttonText: LocalParakeet.isSupported() ? "Download" : "Skip",
+            source: LocalParakeet.isSupported() ? "https://huggingface.co/\(ParakeetModelRepo)/\(ParakeetModelName)" : nil,
+            action: { progress in
+                guard LocalParakeet.isSupported() else {
+                    DispatchQueue.main.async {
+                        progress(1.0)
+                    }
+                    return
+                }
+                
+                Task {
+                    do {
+                        await MainActor.run {
+                            progress(0.05)
+                        }
+                        
+                        try await ModelStorage.shared.downloadParakeetModels { downloadProgress in
+                            Logger.log("Downloading Parakeet model: \(downloadProgress)", log: Logger.general)
+                            Task { @MainActor in
+                                progress(downloadProgress)
+                            }
+                        }
+                        
+                        await MainActor.run {
+                            // Set STT engine to Parakeet since model was successfully downloaded
+                            if LocalParakeet.isSupported() {
+                                settings.sttEngine = .parakeet
+                            }
+                            progress(1.0)
+                        }
+                    } catch {
+                        Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
+                        do {
+                            try ModelStorage.shared.deleteParakeetModels()
+                        } catch {
+                            Logger.log("Failed to delete Parakeet model: \(error)", log: Logger.general, type: .error)
+                        }
+                    }
+                }
+            },
+            skipCondition: {
+                !LocalParakeet.isSupported() || ModelStorage.shared.parakeetModelsExist()
+            },
+            progressBar: true,
+            canSkip: LocalParakeet.isSupported()
         ),
         OnboardingStep(
             title: "Accessibility Permission",
@@ -200,7 +273,8 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 SecurityChecker.shared.checkAccessibilityPermission().isGranted
-            }
+            },
+            canSkip: false
         ),
         OnboardingStep(
             title: "Microphone Access",
@@ -217,7 +291,8 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 SecurityChecker.shared.checkMicrophonePermission().isGranted
-            }
+            },
+            canSkip: false
         ),
         OnboardingStep(
             title: "Apple Events Permission",
@@ -234,7 +309,8 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 SecurityChecker.shared.checkAppleEventsPermission().isGranted
-            }
+            },
+            canSkip: false
         ),
         OnboardingStep(
             title: "You're All Set!",
@@ -250,12 +326,25 @@ struct OnboardingView: View {
             """,
             imageName: "checkmark.circle.fill",
             buttonText: "Get Started",
-            skipCondition: nil
+            skipCondition: nil,
+            canSkip: false
         )
     ] }
 
 
     private func completeOnboarding() {
+        // Set STT engine based on which models are downloaded
+        // Priority: Parakeet (if supported and downloaded) > WhisperKit (if downloaded) > default
+        if LocalParakeet.isSupported() && ModelStorage.shared.parakeetModelsExist() {
+            settings.sttEngine = .parakeet
+            Logger.log("Setting STT engine to Parakeet (model downloaded)", log: Logger.general)
+        } else if ModelStorage.shared.modelExists(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) &&
+                  ModelStorage.shared.isModelLoaded(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) {
+            settings.sttEngine = .whisperKit
+            Logger.log("Setting STT engine to WhisperKit (model downloaded)", log: Logger.general)
+        }
+        // Otherwise keep default (whisperKit)
+        
         settings.hasCompletedOnboarding = true
 
         if !GenericHelper.isDebug() && !GenericHelper.isLocalRun() {
@@ -372,29 +461,71 @@ struct OnboardingView: View {
                                         .progressViewStyle(.linear)
                                         .frame(width: 200)
 
-                                    let status = stepProgress < 0.8 ? "Downloading... \(Int(stepProgress * 100))%" : "Compiling... \(Int(stepProgress * 100))%"
+                                    // Determine status text based on progress
+                                    // Note: Parakeet doesn't have a compilation phase, so we use "Processing..." instead
+                                    let isParakeetStep = currentStep.title.contains("Parakeet")
+                                    let status = stepProgress < 0.8 
+                                        ? "Downloading... \(Int(stepProgress * 100))%"
+                                        : (isParakeetStep 
+                                            ? "Processing... \(Int(stepProgress * 100))%"
+                                            : "Compiling... \(Int(stepProgress * 100))%")
                                     Text(status)
                                         .font(.system(size: 14, weight: .medium))
                                         .foregroundColor(.gray)
                                 }
                             }
-                            Button(currentStep.buttonText) {
-                                stepProgress = 0.01
-                                action(progressCallback)
-                                
-                                // Force an immediate refresh after requesting permission
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    SecurityChecker.shared.updateAllPermissions()
+                            // Show both Download and Skip buttons for skippable steps
+                            if currentStep.canSkip && stepProgress <= 0.0 {
+                                HStack(spacing: 12) {
+                                    Button(currentStep.buttonText) {
+                                        stepProgress = 0.01
+                                        action(progressCallback)
+                                        
+                                        // Force an immediate refresh after requesting permission
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                            SecurityChecker.shared.updateAllPermissions()
+                                            
+                                            // Set stepProgress to completed if permission was immediately granted
+                                            if let skipCondition = currentStep.skipCondition, skipCondition() {
+                                                stepProgress = 1.0
+                                            }
+                                        }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .disabled(stepProgress > 0.0 && stepProgress < 1.0)
                                     
-                                    // Set stepProgress to completed if permission was immediately granted
-                                    if let skipCondition = currentStep.skipCondition, skipCondition() {
-                                        stepProgress = 1.0
+                                    Button("Skip") {
+                                        withAnimation {
+                                            stopCompilationAnimation()
+                                            if currentStepIndex >= 0 && currentStepIndex < allSteps.count - 1 {
+                                                currentStepIndex += 1
+                                                stepProgress = 0
+                                            }
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(stepProgress > 0.0 && stepProgress < 1.0)
+                                }
+                                .padding(.top, 10)
+                            } else {
+                                Button(currentStep.buttonText) {
+                                    stepProgress = 0.01
+                                    action(progressCallback)
+                                    
+                                    // Force an immediate refresh after requesting permission
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        SecurityChecker.shared.updateAllPermissions()
+                                        
+                                        // Set stepProgress to completed if permission was immediately granted
+                                        if let skipCondition = currentStep.skipCondition, skipCondition() {
+                                            stepProgress = 1.0
+                                        }
                                     }
                                 }
+                                .buttonStyle(.borderedProminent)
+                                .padding(.top, 10)
+                                .disabled(stepProgress > 0.0 && stepProgress < 1.0)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .padding(.top, 10)
-                            .disabled(stepProgress > 0.0 && stepProgress < 1.0)
                         } else {
                             Text("Completed")
                                 .foregroundColor(.green)

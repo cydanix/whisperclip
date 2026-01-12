@@ -138,7 +138,10 @@ struct OnboardingView: View {
                         }
                     } catch {
                         Logger.log("Failed to download voice-to-text model: \(error)", log: Logger.general, type: .error)
-                        await MainActor.run { stopCompilationAnimation() }
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
                         do {
                             try ModelStorage.shared.deleteModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         } catch {
@@ -180,7 +183,10 @@ struct OnboardingView: View {
                         progress(1.0)
                     } catch {
                         Logger.log("Failed to download LLM model: \(error)", log: Logger.general, type: .error)
-                        await MainActor.run { stopCompilationAnimation() }
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
                         do {
                             try ModelStorage.shared.deleteModel(modelRepo: modelID, modelName: "")
                         } catch {
@@ -244,6 +250,9 @@ struct OnboardingView: View {
                         }
                     } catch {
                         Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
+                        await MainActor.run {
+                            progress(0)  // Reset progress to allow retry or skip
+                        }
                         do {
                             try ModelStorage.shared.deleteParakeetModels()
                         } catch {

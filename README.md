@@ -17,10 +17,12 @@
 ## ✨ Features
 
 ### 🎤 **Voice-to-Text Transcription**
-- High-quality speech recognition using WhisperKit
-- Multiple model sizes (216MB to 955MB) for different accuracy/speed trade-offs
+- **Two speech recognition engines**:
+  - **Parakeet** (default) - Fast and accurate using Apple Neural Engine, 25 European languages
+  - **WhisperKit** - Multiple model sizes (216MB to 955MB) for different accuracy/speed trade-offs
 - Support for multiple languages with auto-detection
 - Real-time waveform visualization during recording
+- **Audio file transcription** - Import MP3, WAV, M4A, FLAC, and more
 
 ### 🤖 **AI-Powered Text Enhancement**
 - Local LLM processing for grammar correction and text improvement
@@ -45,17 +47,20 @@
 - Menu bar integration
 - Start minimized option
 - Auto-stop recording after 10 minutes
+- **Transcription history** - Browse and search past transcriptions
 
 ### 🎨 **User Experience**
-- Beautiful dark-themed interface
-- Real-time recording visualization
+- Beautiful dark-themed interface with modern sidebar navigation
+- Real-time recording visualization with animated effects
 - Recording overlay with customizable position
 - Comprehensive onboarding guide
 - Easy model management and downloads
 - Customizable shortcuts and prompts
+- Drag-and-drop audio file support
 
 ## 📋 Requirements
 
+- **Apple Silicon Mac** (M1, M2, M3, or later)
 - **macOS 14.0** or later
 - **20GB** free disk space (for AI models)
 - **Microphone access** permission
@@ -101,7 +106,13 @@ cd whisperclip
 
 ## 🤖 Supported AI Models
 
-### Speech-to-Text (WhisperKit)
+### Speech-to-Text
+**Parakeet** (default, recommended)
+- Fast transcription using Apple Neural Engine
+- 25 European languages supported
+- Optimized for Apple Silicon
+
+**WhisperKit** (alternative)
 - **OpenAI Whisper Small** (216MB) - Fast, good quality
 - **OpenAI Whisper Large v3 Turbo** (632MB) - Best balance
 - **Distil Whisper Large v3 Turbo** (600MB) - Optimized speed
@@ -133,17 +144,23 @@ WhisperClip is designed with privacy as the cornerstone:
 ### Project Structure
 ```
 Sources/
-├── WhisperClip.swift      # Main app entry point
-├── ContentView.swift      # Main UI interface
-├── AudioRecorder.swift    # Voice recording logic
-├── VoiceToText*.swift     # Transcription engine
-├── LLM*.swift            # AI text enhancement
-├── ModelStorage.swift     # Model management
-├── SettingsStore.swift    # User preferences
-└── HotkeyManager.swift    # Global shortcuts
+├── WhisperClip.swift          # Main app entry point
+├── ContentView.swift          # Main UI with sidebar navigation
+├── MicrophoneView.swift       # Voice recording interface
+├── FileTranscriptionView.swift # Audio file transcription
+├── HistoryView.swift          # Transcription history browser
+├── SharedViews.swift          # Shared UI components
+├── AudioRecorder.swift        # Voice recording logic
+├── VoiceToText*.swift         # Transcription engines (Parakeet, WhisperKit)
+├── LLM*.swift                 # AI text enhancement
+├── TranscriptionHistory.swift # History data management
+├── ModelStorage.swift         # Model management
+├── SettingsStore.swift        # User preferences
+└── HotkeyManager.swift        # Global shortcuts
 ```
 
 ### Dependencies
+- **FluidAudio**: Parakeet speech recognition with Apple Neural Engine
 - **WhisperKit**: Apple's optimized Whisper implementation
 - **MLX**: Apple Silicon ML framework
 - **MLX-Swift-Examples**: LLM implementations
@@ -198,11 +215,12 @@ WhisperClip is developed by **Cydanix LLC**.
 
 - **Website**: [whisperclip.com](https://whisperclip.com)
 - **Support**: [support@cydanix.com](mailto:support@cydanix.com)
-- **Version**: 1.0.45
+- **Version**: 1.0.46
 
 ## 🙏 Acknowledgments
 
 - **Apple** - WhisperKit and MLX frameworks
+- **Senstella** - FluidAudio and Parakeet models
 - **OpenAI** - Original Whisper models
 - **Hugging Face** - Model hosting and Hub library
 - **ML Community** - Open source AI models (Gemma, Llama, Qwen, etc.)

@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.46] - 2026-01-13
+
+### Added
+- **Parakeet voice-to-text engine**: New speech recognition option using FluidAudio with Apple Neural Engine support. Supports 25 European languages with excellent accuracy.
+- **Sidebar navigation**: Redesigned main interface with a modern sidebar containing Microphone, Audio File, and History sections.
+- **Audio file transcription**: New feature to transcribe audio files (MP3, WAV, M4A, AIFF, FLAC, OGG) via drag-and-drop or file picker.
+- **Transcription history**: Browse past transcriptions with date/time, source indicator (mic/file), and easy copy functionality.
+- **History search**: Full-text search across transcription history with highlighted matches.
+- **Setup Guide menu item**: Quick access to onboarding/setup from the menu bar.
+
+### Changed
+- **Apple Silicon only**: App now requires Apple Silicon Mac (M1 or later) for optimal AI performance.
+- **Redesigned UI**: Modern dark theme with gradient backgrounds, animations, and polished visual effects.
+- **Dynamic hotkey display**: Hotkey shown in sidebar and microphone view now updates in real-time when changed in settings.
+- **Code organization**: Refactored large UI components into separate files for better maintainability.
+
+### Fixed
+- Fixed hotkey display not updating when changed in settings.
+- Fixed sidebar alignment with window traffic light buttons.
+
 ## [1.0.45] - 2026-01-11
 
 ### Added

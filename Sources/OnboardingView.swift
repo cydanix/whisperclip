@@ -110,12 +110,74 @@ struct OnboardingView: View {
             canSkip: false
         ),
         OnboardingStep(
-            title: "Download Voice-To-Text Model (Optional)",
-            description: """
-            Optional for:
-            • Voice-to-text transcription
+            title: LocalParakeet.isSupported() ? "Download Parakeet Model" : "Download Parakeet Model (Not Available)",
+            description: LocalParakeet.isSupported() ? """
+            Required voice-to-text engine:
+            • Optimized for Apple Neural Engine
+            • Supports 25 European languages
+            • Fast inference on Apple Silicon
 
-            Click "Download" to download the model, or "Skip" to download later from Settings.
+            This is the default speech-to-text engine.
+            """ : """
+            Parakeet is not available on Intel Macs.
+            This feature requires Apple Silicon.
+
+            You can skip this step and use WhisperKit instead.
+            """,
+            imageName: "waveform.badge.plus",
+            buttonText: LocalParakeet.isSupported() ? "Download" : "Skip",
+            source: LocalParakeet.isSupported() ? "https://huggingface.co/\(ParakeetModelRepo)/\(ParakeetModelName)" : nil,
+            action: { [self] progress in
+                guard LocalParakeet.isSupported() else {
+                    DispatchQueue.main.async {
+                        progress(1.0)
+                    }
+                    return
+                }
+                
+                Task {
+                    do {
+                        await MainActor.run {
+                            progress(0.05)
+                        }
+                        
+                        try await ModelStorage.shared.downloadParakeetModels { downloadProgress in
+                            Logger.log("Downloading Parakeet model: \(downloadProgress)", log: Logger.general)
+                            Task { @MainActor in
+                                progress(downloadProgress)
+                            }
+                        }
+                        
+                        await MainActor.run {
+                            progress(1.0)
+                        }
+                    } catch {
+                        Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
+                        await MainActor.run {
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
+                        do {
+                            try ModelStorage.shared.deleteParakeetModels()
+                        } catch {
+                            Logger.log("Failed to delete Parakeet model: \(error)", log: Logger.general, type: .error)
+                        }
+                    }
+                }
+            },
+            skipCondition: {
+                !LocalParakeet.isSupported() || ModelStorage.shared.parakeetModelsExist()
+            },
+            progressBar: true,
+            canSkip: !LocalParakeet.isSupported()
+        ),
+        OnboardingStep(
+            title: "Download WhisperKit Model (Optional)",
+            description: """
+            Optional alternative voice-to-text engine:
+            • Works on all Macs (Intel and Apple Silicon)
+            • Supports 99 languages
+
+            Click "Download" to download, or "Skip" to use Parakeet instead.
             """,
             imageName: "mic.fill",
             buttonText: "Download",
@@ -132,8 +194,10 @@ struct OnboardingView: View {
                         try await ModelStorage.shared.preLoadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         await MainActor.run { stopCompilationAnimation() }
                         await MainActor.run {
-                            // Set STT engine to WhisperKit since model was successfully downloaded
-                            settings.sttEngine = .whisperKit
+                            // On Intel Macs where Parakeet is not available, use WhisperKit
+                            if !LocalParakeet.isSupported() {
+                                settings.sttEngine = .whisperKit
+                            }
                             progress(1.0)
                         }
                     } catch {
@@ -201,71 +265,6 @@ struct OnboardingView: View {
             },
             progressBar: true,
             canSkip: true
-        ),
-        OnboardingStep(
-            title: "Download Parakeet Model (Optional)",
-            description: LocalParakeet.isSupported() ? """
-            Optional alternative voice-to-text engine:
-            • Optimized for Apple Neural Engine
-            • Supports 25 European languages
-            • Fast inference on Apple Silicon
-
-            You can skip this and download later from Settings.
-            """ : """
-            Parakeet is not available on Intel Macs.
-            This feature requires Apple Silicon.
-
-            You can skip this step.
-            """,
-            imageName: "waveform.badge.plus",
-            buttonText: LocalParakeet.isSupported() ? "Download" : "Skip",
-            source: LocalParakeet.isSupported() ? "https://huggingface.co/\(ParakeetModelRepo)/\(ParakeetModelName)" : nil,
-            action: { progress in
-                guard LocalParakeet.isSupported() else {
-                    DispatchQueue.main.async {
-                        progress(1.0)
-                    }
-                    return
-                }
-                
-                Task {
-                    do {
-                        await MainActor.run {
-                            progress(0.05)
-                        }
-                        
-                        try await ModelStorage.shared.downloadParakeetModels { downloadProgress in
-                            Logger.log("Downloading Parakeet model: \(downloadProgress)", log: Logger.general)
-                            Task { @MainActor in
-                                progress(downloadProgress)
-                            }
-                        }
-                        
-                        await MainActor.run {
-                            // Set STT engine to Parakeet since model was successfully downloaded
-                            if LocalParakeet.isSupported() {
-                                settings.sttEngine = .parakeet
-                            }
-                            progress(1.0)
-                        }
-                    } catch {
-                        Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
-                        await MainActor.run {
-                            progress(0)  // Reset progress to allow retry or skip
-                        }
-                        do {
-                            try ModelStorage.shared.deleteParakeetModels()
-                        } catch {
-                            Logger.log("Failed to delete Parakeet model: \(error)", log: Logger.general, type: .error)
-                        }
-                    }
-                }
-            },
-            skipCondition: {
-                !LocalParakeet.isSupported() || ModelStorage.shared.parakeetModelsExist()
-            },
-            progressBar: true,
-            canSkip: LocalParakeet.isSupported()
         ),
         OnboardingStep(
             title: "Accessibility Permission",

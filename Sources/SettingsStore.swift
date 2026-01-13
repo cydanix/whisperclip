@@ -17,7 +17,7 @@ struct Prompt: Codable, Identifiable {
 struct DefaultSettings {
     static let hasCompletedOnboarding = false
     static let language = "auto"
-    static let sttEngine = STTEngine.whisperKit
+    static let sttEngine = STTEngine.parakeet
     static let autoEnter = false
     static let startMinimized = false
     static let displayRecordingOverlay = false

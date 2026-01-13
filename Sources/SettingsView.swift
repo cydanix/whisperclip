@@ -484,6 +484,12 @@ struct SettingsView: View {
                         return
                     }
                     
+                    // When Parakeet is selected, force language to auto (Parakeet auto-detects)
+                    if newValue == .parakeet {
+                        settings.language = "auto"
+                        selectedLanguage = "auto"
+                    }
+                    
                     // Warn if Parakeet selected but not downloaded
                     if newValue == .parakeet && !parakeetModelExists && !isDownloadingParakeet {
                         // Could show alert here, but for now just refresh status
@@ -584,13 +590,20 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .disabled(settings.sttEngine == .parakeet)
                 .onChange(of: selectedLanguage) { _, newValue in
                     settings.language = newValue
                 }
                 
-                Text("Select the language for speech recognition. Auto Detect will try to identify the language automatically.")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                if settings.sttEngine == .parakeet {
+                    Text("Parakeet automatically detects the spoken language. Language selection is only available with WhisperKit.")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                } else {
+                    Text("Select the language for speech recognition. Auto Detect will try to identify the language automatically.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
             }
             .padding()
         }

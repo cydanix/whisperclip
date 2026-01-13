@@ -13,7 +13,6 @@ struct OnboardingStep {
     let action: ((@escaping (Double) -> Void) -> Void)?
     let skipCondition: (() -> Bool)?
     let progressBar: Bool
-    let canSkip: Bool
 
     init(
         title: String,
@@ -23,8 +22,7 @@ struct OnboardingStep {
         source: String? = nil,
         action: ((@escaping (Double) -> Void) -> Void)? = nil,
         skipCondition: (() -> Bool)? = nil,
-        progressBar: Bool = false,
-        canSkip: Bool = false
+        progressBar: Bool = false
     ) {
         self.title = title
         self.description = description
@@ -34,7 +32,6 @@ struct OnboardingStep {
         self.action = action
         self.skipCondition = skipCondition
         self.progressBar = progressBar
-        self.canSkip = canSkip
     }
 }
 
@@ -44,6 +41,7 @@ struct OnboardingView: View {
     @ObservedObject private var securityChecker = SecurityChecker.shared
     @State private var currentStepIndex = 0
     @State private var stepProgress: Double = 0
+    @State private var progressTarget: Double = 0  // Target for smooth animation
     @State private var permissionRefreshTimer: Timer?
     @State private var compilationTimer: Timer?
     @State private var isCompiling: Bool = false
@@ -71,6 +69,25 @@ struct OnboardingView: View {
             }
         }
     }
+    
+    private func startSmoothProgressAnimation() {
+        isCompiling = true
+        progressTarget = 0.65  // First target: animate towards 65% while download happens
+        // Animate progress towards target milestone
+        compilationTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
+            DispatchQueue.main.async {
+                if isCompiling && stepProgress < progressTarget {
+                    // Smooth asymptotic approach to target
+                    let remaining = progressTarget - stepProgress
+                    stepProgress += remaining * 0.08
+                }
+            }
+        }
+    }
+    
+    private func updateProgressTarget(_ target: Double) {
+        progressTarget = min(target, 0.99)
+    }
 
     private func stopCompilationAnimation() {
         isCompiling = false
@@ -84,8 +101,7 @@ struct OnboardingView: View {
             description: "Let's set up the essential permissions and preferences so WhisperClip works smoothly.",
             imageName: "waveform.circle.fill",
             buttonText: "Next",
-            skipCondition: nil,
-            canSkip: false
+            skipCondition: nil
         ),
         OnboardingStep(
             title: "Move to Applications",
@@ -106,8 +122,7 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 FileManager.default.fileExists(atPath: WhisperClipAppDir)
-            },
-            canSkip: false
+            }
         ),
         OnboardingStep(
             title: "Download Parakeet Model",
@@ -125,23 +140,32 @@ struct OnboardingView: View {
             action: { [self] progress in
                 Task {
                     do {
+                        // Start smooth animation immediately
                         await MainActor.run {
-                            progress(0.05)
+                            startSmoothProgressAnimation()
                         }
                         
                         try await ModelStorage.shared.downloadParakeetModels { downloadProgress in
                             Logger.log("Downloading Parakeet model: \(downloadProgress)", log: Logger.general)
                             Task { @MainActor in
-                                progress(downloadProgress)
+                                // Update target based on milestones from download
+                                // 0.70 -> target 0.85, 0.90 -> target 0.95
+                                if downloadProgress >= 0.90 {
+                                    updateProgressTarget(0.95)
+                                } else if downloadProgress >= 0.70 {
+                                    updateProgressTarget(0.85)
+                                }
                             }
                         }
                         
                         await MainActor.run {
+                            stopCompilationAnimation()
                             progress(1.0)
                         }
                     } catch {
                         Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
                         await MainActor.run {
+                            stopCompilationAnimation()
                             stepProgress = 0  // Reset progress to allow retry or skip
                         }
                         do {
@@ -155,8 +179,7 @@ struct OnboardingView: View {
             skipCondition: {
                 ModelStorage.shared.parakeetModelsExist()
             },
-            progressBar: true,
-            canSkip: false
+            progressBar: true
         ),
         OnboardingStep(
             title: "Download WhisperKit Model (Optional)",
@@ -164,7 +187,7 @@ struct OnboardingView: View {
             Optional alternative voice-to-text engine:
             • Supports 99 languages
 
-            Click "Download" to download, or "Skip" to use Parakeet instead.
+            Click "Download" to download, or "Next" to use Parakeet instead.
             """,
             imageName: "mic.fill",
             buttonText: "Download",
@@ -201,8 +224,7 @@ struct OnboardingView: View {
                 ModelStorage.shared.modelExists(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) &&
                 ModelStorage.shared.isModelLoaded(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
             },
-            progressBar: true,
-            canSkip: true
+            progressBar: true
         ),
         OnboardingStep(
             title: "Download LLM Model (Optional)",
@@ -210,7 +232,7 @@ struct OnboardingView: View {
             Optional for:
             • Text-enhancing and prompts
 
-            Click "Download" to download the model, or "Skip" to download later from Settings.
+            Click "Download" to download the model, or "Next" to download later from Settings.
             """,
             imageName: "brain.head.profile",
             buttonText: "Download",
@@ -246,8 +268,7 @@ struct OnboardingView: View {
                 ModelStorage.shared.modelExists(modelRepo: CurrentLLMModelRepo + "/" + CurrentLLMModelName, modelName: "") &&
                 ModelStorage.shared.isModelLoaded(modelRepo: CurrentLLMModelRepo + "/" + CurrentLLMModelName, modelName: "")
             },
-            progressBar: true,
-            canSkip: true
+            progressBar: true
         ),
         OnboardingStep(
             title: "Accessibility Permission",
@@ -264,8 +285,7 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 SecurityChecker.shared.checkAccessibilityPermission().isGranted
-            },
-            canSkip: false
+            }
         ),
         OnboardingStep(
             title: "Microphone Access",
@@ -282,8 +302,7 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 SecurityChecker.shared.checkMicrophonePermission().isGranted
-            },
-            canSkip: false
+            }
         ),
         OnboardingStep(
             title: "Apple Events Permission",
@@ -300,8 +319,7 @@ struct OnboardingView: View {
             },
             skipCondition: {
                 SecurityChecker.shared.checkAppleEventsPermission().isGranted
-            },
-            canSkip: false
+            }
         ),
         OnboardingStep(
             title: "You're All Set!",
@@ -317,8 +335,7 @@ struct OnboardingView: View {
             """,
             imageName: "checkmark.circle.fill",
             buttonText: "Get Started",
-            skipCondition: nil,
-            canSkip: false
+            skipCondition: nil
         )
     ] }
 
@@ -465,58 +482,23 @@ struct OnboardingView: View {
                                         .foregroundColor(.gray)
                                 }
                             }
-                            // Show both Download and Skip buttons for skippable steps
-                            if currentStep.canSkip && stepProgress <= 0.0 {
-                                HStack(spacing: 12) {
-                                    Button(currentStep.buttonText) {
-                                        stepProgress = 0.01
-                                        action(progressCallback)
-                                        
-                                        // Force an immediate refresh after requesting permission
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                            SecurityChecker.shared.updateAllPermissions()
-                                            
-                                            // Set stepProgress to completed if permission was immediately granted
-                                            if let skipCondition = currentStep.skipCondition, skipCondition() {
-                                                stepProgress = 1.0
-                                            }
-                                        }
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .disabled(stepProgress > 0.0 && stepProgress < 1.0)
+                            Button(currentStep.buttonText) {
+                                stepProgress = 0.01
+                                action(progressCallback)
+                                
+                                // Force an immediate refresh after requesting permission
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    SecurityChecker.shared.updateAllPermissions()
                                     
-                                    Button("Skip") {
-                                        withAnimation {
-                                            stopCompilationAnimation()
-                                            if currentStepIndex >= 0 && currentStepIndex < allSteps.count - 1 {
-                                                currentStepIndex += 1
-                                                stepProgress = 0
-                                            }
-                                        }
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .disabled(stepProgress > 0.0 && stepProgress < 1.0)
-                                }
-                                .padding(.top, 10)
-                            } else {
-                                Button(currentStep.buttonText) {
-                                    stepProgress = 0.01
-                                    action(progressCallback)
-                                    
-                                    // Force an immediate refresh after requesting permission
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                        SecurityChecker.shared.updateAllPermissions()
-                                        
-                                        // Set stepProgress to completed if permission was immediately granted
-                                        if let skipCondition = currentStep.skipCondition, skipCondition() {
-                                            stepProgress = 1.0
-                                        }
+                                    // Set stepProgress to completed if permission was immediately granted
+                                    if let skipCondition = currentStep.skipCondition, skipCondition() {
+                                        stepProgress = 1.0
                                     }
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .padding(.top, 10)
-                                .disabled(stepProgress > 0.0 && stepProgress < 1.0)
                             }
+                            .buttonStyle(.borderedProminent)
+                            .padding(.top, 10)
+                            .disabled(stepProgress > 0.0 && stepProgress < 1.0)
                         } else {
                             Text("Completed")
                                 .foregroundColor(.green)

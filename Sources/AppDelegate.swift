@@ -1,6 +1,11 @@
 import Foundation
 import AppKit
 
+extension Notification.Name {
+    static let showSetupGuide = Notification.Name("showSetupGuide")
+    static let openSettings = Notification.Name("openSettings")
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var signalSources: [DispatchSourceSignal] = []
     private var statusItem: NSStatusItem?
@@ -24,6 +29,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Show \(WhisperClipAppName)", action: #selector(showApp), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Setup Guide", action: #selector(showSetupGuide), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Donate ❤️", action: #selector(openDonate), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
@@ -40,6 +47,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let url = URL(string: WhisperClipDonateLink) {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    @objc private func showSetupGuide() {
+        NotificationCenter.default.post(name: .showSetupGuide, object: nil)
+    }
+
+    @objc private func openSettings() {
+        NotificationCenter.default.post(name: .openSettings, object: nil)
     }
 
     private func setupSignalHandlers() {

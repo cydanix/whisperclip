@@ -31,6 +31,7 @@ class LocalParakeet {
     }
     
     /// Download Parakeet models with progress tracking
+    /// Progress milestones: download=0-70%, load=70-90%, initialize=90-100%
     static func downloadModels(progress: @escaping (Double) -> Void) async throws {
         Logger.log("Downloading Parakeet models...", log: Logger.general)
         
@@ -52,18 +53,17 @@ class LocalParakeet {
         // Clear any stale cache before downloading
         clearCache()
         
-        // FluidAudio doesn't expose granular download progress, so we simulate it
-        // Download happens in phases: download files, then compile CoreML models
-        progress(0.1)
+        progress(0.01)
         
         do {
             // Download models - FluidAudio handles the download internally
+            // No granular progress available, milestone at 70%
             _ = try await AsrModels.download(version: .v3)
-            progress(0.7)
+            progress(0.70)
             
             // Load models to trigger CoreML compilation
             let models = try await AsrModels.load(from: getModelsDirectory(), version: .v3)
-            progress(0.9)
+            progress(0.90)
             
             // Initialize the manager to verify everything works
             let manager = AsrManager(config: .default)
@@ -93,7 +93,7 @@ class LocalParakeet {
         // Validate models exist first
         guard modelsExist() else {
             throw NSError(domain: "LocalParakeet", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Parakeet models not downloaded. Please download them from Settings or Onboarding."])
+                          userInfo: [NSLocalizedDescriptionKey: "Parakeet models not downloaded. Please download them from Setup Guide."])
         }
         
         // Return cached manager if available and valid

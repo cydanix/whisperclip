@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct WhisperClip: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openSettings) private var openSettings
     @State private var showPermissionAlert = false
     @State private var missingPermissions: [String] = []
     @StateObject private var hotkeyManager = HotkeyManager.shared
@@ -117,6 +118,15 @@ struct WhisperClip: App {
                                 setActiveSheet(sheet: nil)
                             }
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .showSetupGuide)) { _ in
+                    NSApp.activate(ignoringOtherApps: true)
+                    SettingsStore.shared.hasCompletedOnboarding = false
+                    setActiveSheet(sheet: .onboarding)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+                    NSApp.activate(ignoringOtherApps: true)
+                    openSettings()
                 }
         }
         Settings {

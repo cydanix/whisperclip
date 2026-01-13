@@ -478,12 +478,6 @@ struct SettingsView: View {
                     // Refresh model status when engine changes
                     refreshParakeetModelStatus()
                     
-                    // If Parakeet selected but not supported, switch back to WhisperKit
-                    if newValue == .parakeet && !LocalParakeet.isSupported() {
-                        settings.sttEngine = .whisperKit
-                        return
-                    }
-                    
                     // When Parakeet is selected, force language to auto (Parakeet auto-detects)
                     if newValue == .parakeet {
                         settings.language = "auto"
@@ -497,8 +491,8 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Show Parakeet download section if not downloaded and supported
-                if !parakeetModelExists && LocalParakeet.isSupported() {
+                // Show Parakeet download section if not downloaded
+                if !parakeetModelExists {
                     Divider()
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -528,15 +522,9 @@ struct SettingsView: View {
                     }
                 }
                 
-                if LocalParakeet.isSupported() {
-                    Text("Both engines support multiple languages. Parakeet uses CoreML/ANE for fast inference.")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                } else {
-                    Text("Parakeet requires Apple Silicon. WhisperKit works on all Macs.")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
+                Text("Both engines support multiple languages. Parakeet uses CoreML/ANE for fast inference.")
+                    .font(.caption)
+                    .foregroundColor(.gray)
             }
             .padding()
         }
@@ -700,6 +688,7 @@ struct SettingsView: View {
     private func deleteAllModels() {
         ModelStorage.shared.deleteAllModels()
         Logger.log("All models deleted by user", log: Logger.general)
+        refreshParakeetModelStatus()
     }
 }
 

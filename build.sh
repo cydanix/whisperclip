@@ -33,12 +33,14 @@ mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
 
 # ─── Build ─────────────────────────────────────────────────────────────────────
 
-echo "Building $APP_NAME (release)…"
+echo "Building $APP_NAME (release, Apple Silicon only)…"
 xcodebuild \
   -scheme WhisperClip \
   -configuration Release \
-  -destination 'platform=macOS' \
+  -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$BUILD_DIR" \
+  ARCHS=arm64 \
+  ONLY_ACTIVE_ARCH=NO \
   build
 
 # ─── Bundle creation ───────────────────────────────────────────────────────────
@@ -78,7 +80,13 @@ cat > "$BUNDLE_PATH/Contents/Info.plist" << EOF
     <key>CFBundleIconFile</key>
     <string>WhisperClip</string>
     <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
+    <string>14.0</string>
+    <key>LSArchitecturePriority</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <key>LSRequiresNativeExecution</key>
+    <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>${APP_NAME} needs access to your microphone for transcription.</string>
     <key>NSPasteboardUsageDescription</key>

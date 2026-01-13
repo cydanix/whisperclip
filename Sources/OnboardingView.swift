@@ -110,31 +110,19 @@ struct OnboardingView: View {
             canSkip: false
         ),
         OnboardingStep(
-            title: LocalParakeet.isSupported() ? "Download Parakeet Model" : "Download Parakeet Model (Not Available)",
-            description: LocalParakeet.isSupported() ? """
+            title: "Download Parakeet Model",
+            description: """
             Required voice-to-text engine:
             • Optimized for Apple Neural Engine
             • Supports 25 European languages
             • Fast inference on Apple Silicon
 
             This is the default speech-to-text engine.
-            """ : """
-            Parakeet is not available on Intel Macs.
-            This feature requires Apple Silicon.
-
-            You can skip this step and use WhisperKit instead.
             """,
             imageName: "waveform.badge.plus",
-            buttonText: LocalParakeet.isSupported() ? "Download" : "Skip",
-            source: LocalParakeet.isSupported() ? "https://huggingface.co/\(ParakeetModelRepo)/\(ParakeetModelName)" : nil,
+            buttonText: "Download",
+            source: "https://huggingface.co/\(ParakeetModelRepo)/\(ParakeetModelName)",
             action: { [self] progress in
-                guard LocalParakeet.isSupported() else {
-                    DispatchQueue.main.async {
-                        progress(1.0)
-                    }
-                    return
-                }
-                
                 Task {
                     do {
                         await MainActor.run {
@@ -165,16 +153,15 @@ struct OnboardingView: View {
                 }
             },
             skipCondition: {
-                !LocalParakeet.isSupported() || ModelStorage.shared.parakeetModelsExist()
+                ModelStorage.shared.parakeetModelsExist()
             },
             progressBar: true,
-            canSkip: !LocalParakeet.isSupported()
+            canSkip: false
         ),
         OnboardingStep(
             title: "Download WhisperKit Model (Optional)",
             description: """
             Optional alternative voice-to-text engine:
-            • Works on all Macs (Intel and Apple Silicon)
             • Supports 99 languages
 
             Click "Download" to download, or "Skip" to use Parakeet instead.
@@ -194,10 +181,6 @@ struct OnboardingView: View {
                         try await ModelStorage.shared.preLoadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         await MainActor.run { stopCompilationAnimation() }
                         await MainActor.run {
-                            // On Intel Macs where Parakeet is not available, use WhisperKit
-                            if !LocalParakeet.isSupported() {
-                                settings.sttEngine = .whisperKit
-                            }
                             progress(1.0)
                         }
                     } catch {
@@ -342,8 +325,8 @@ struct OnboardingView: View {
 
     private func completeOnboarding() {
         // Set STT engine based on which models are downloaded
-        // Priority: Parakeet (if supported and downloaded) > WhisperKit (if downloaded) > default
-        if LocalParakeet.isSupported() && ModelStorage.shared.parakeetModelsExist() {
+        // Priority: Parakeet (if downloaded) > WhisperKit (if downloaded) > default (Parakeet)
+        if ModelStorage.shared.parakeetModelsExist() {
             settings.sttEngine = .parakeet
             Logger.log("Setting STT engine to Parakeet (model downloaded)", log: Logger.general)
         } else if ModelStorage.shared.modelExists(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) &&
@@ -351,7 +334,7 @@ struct OnboardingView: View {
             settings.sttEngine = .whisperKit
             Logger.log("Setting STT engine to WhisperKit (model downloaded)", log: Logger.general)
         }
-        // Otherwise keep default (whisperKit)
+        // Otherwise keep default (parakeet)
         
         settings.hasCompletedOnboarding = true
 

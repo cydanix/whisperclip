@@ -4,15 +4,6 @@ import FluidAudio
 class LocalParakeet {
     private static var cachedManager: AsrManager?
     
-    /// Check if Parakeet is supported on this system (requires Apple Silicon)
-    static func isSupported() -> Bool {
-        #if arch(arm64)
-        return true
-        #else
-        return false
-        #endif
-    }
-    
     /// Get the directory where Parakeet models are stored
     static func getModelsDirectory() -> URL {
         return AsrModels.defaultCacheDirectory(for: .v3)
@@ -41,12 +32,6 @@ class LocalParakeet {
     
     /// Download Parakeet models with progress tracking
     static func downloadModels(progress: @escaping (Double) -> Void) async throws {
-        // Validate Apple Silicon requirement
-        guard isSupported() else {
-            throw NSError(domain: "LocalParakeet", code: 4,
-                          userInfo: [NSLocalizedDescriptionKey: "Parakeet models require Apple Silicon. This feature is not available on Intel Macs."])
-        }
-        
         Logger.log("Downloading Parakeet models...", log: Logger.general)
         
         // Check if models already exist
@@ -105,12 +90,6 @@ class LocalParakeet {
     
     /// Load Parakeet model (downloads if needed)
     static func loadModel() async throws -> AsrManager {
-        // Validate Apple Silicon requirement
-        guard isSupported() else {
-            throw NSError(domain: "LocalParakeet", code: 4,
-                          userInfo: [NSLocalizedDescriptionKey: "Parakeet models require Apple Silicon. This feature is not available on Intel Macs."])
-        }
-        
         // Validate models exist first
         guard modelsExist() else {
             throw NSError(domain: "LocalParakeet", code: 1,

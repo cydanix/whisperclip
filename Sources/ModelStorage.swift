@@ -205,10 +205,6 @@ class ModelStorage {
     }
     
     func parakeetModelsLoaded() -> Bool {
-        // Check if models exist and system supports Parakeet
-        guard LocalParakeet.isSupported() else {
-            return false
-        }
         return LocalParakeet.modelsExist()
     }
     

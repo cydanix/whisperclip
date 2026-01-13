@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct WhisperClip: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openSettings) private var openSettings
     @State private var showPermissionAlert = false
     @State private var missingPermissions: [String] = []
     @StateObject private var hotkeyManager = HotkeyManager.shared
@@ -22,6 +23,20 @@ struct WhisperClip: App {
 
     init() {
         Logger.log("WhisperClip initialized", log: Logger.general)
+        
+        // Check for Apple Silicon - app requires arm64
+        #if !arch(arm64)
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Apple Silicon Required"
+            alert.informativeText = "WhisperClip requires an Apple Silicon Mac (M1 or later). This app cannot run on Intel-based Macs."
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "Quit")
+            alert.runModal()
+            NSApplication.shared.terminate(nil)
+        }
+        #endif
+        
         WhisperClip.shared = self
     }
 
@@ -103,6 +118,15 @@ struct WhisperClip: App {
                                 setActiveSheet(sheet: nil)
                             }
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .showSetupGuide)) { _ in
+                    NSApp.activate(ignoringOtherApps: true)
+                    SettingsStore.shared.hasCompletedOnboarding = false
+                    setActiveSheet(sheet: .onboarding)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+                    NSApp.activate(ignoringOtherApps: true)
+                    openSettings()
                 }
         }
         Settings {

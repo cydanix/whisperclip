@@ -17,6 +17,7 @@ struct Prompt: Codable, Identifiable {
 struct DefaultSettings {
     static let hasCompletedOnboarding = false
     static let language = "auto"
+    static let sttEngine = STTEngine.parakeet
     static let autoEnter = false
     static let startMinimized = false
     static let displayRecordingOverlay = false
@@ -41,6 +42,7 @@ class SettingsStore: ObservableObject {
     private enum Keys: String {
         case hasCompletedOnboarding = "hasCompletedOnboarding"
         case language = "language"
+        case sttEngine = "sttEngine"
         case autoEnter = "autoEnter"
         case startMinimized = "startMinimized"
         case displayRecordingOverlay = "displayRecordingOverlay"
@@ -66,6 +68,12 @@ class SettingsStore: ObservableObject {
     @Published var language: String = "auto" {
         didSet {
             defaults.set(language, forKey: Keys.language.rawValue)
+        }
+    }
+    
+    @Published var sttEngine: STTEngine = DefaultSettings.sttEngine {
+        didSet {
+            defaults.set(sttEngine.rawValue, forKey: Keys.sttEngine.rawValue)
         }
     }
     
@@ -159,6 +167,12 @@ class SettingsStore: ObservableObject {
         // Note: Property observers are temporarily disabled during init
         self.hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding.rawValue) == nil ? DefaultSettings.hasCompletedOnboarding : defaults.bool(forKey: Keys.hasCompletedOnboarding.rawValue)
         self.language = defaults.string(forKey: Keys.language.rawValue) ?? DefaultSettings.language
+        if let sttEngineRaw = defaults.string(forKey: Keys.sttEngine.rawValue),
+           let engine = STTEngine(rawValue: sttEngineRaw) {
+            self.sttEngine = engine
+        } else {
+            self.sttEngine = DefaultSettings.sttEngine
+        }
         self.autoEnter = defaults.object(forKey: Keys.autoEnter.rawValue) == nil ? DefaultSettings.autoEnter : defaults.bool(forKey: Keys.autoEnter.rawValue)
         self.startMinimized = defaults.object(forKey: Keys.startMinimized.rawValue) == nil ? DefaultSettings.startMinimized : defaults.bool(forKey: Keys.startMinimized.rawValue)
         self.displayRecordingOverlay = defaults.object(forKey: Keys.displayRecordingOverlay.rawValue) == nil ? DefaultSettings.displayRecordingOverlay : defaults.bool(forKey: Keys.displayRecordingOverlay.rawValue)
@@ -233,6 +247,7 @@ class SettingsStore: ObservableObject {
         // This will trigger didSet observers which will update UserDefaults
         hasCompletedOnboarding = DefaultSettings.hasCompletedOnboarding
         language = DefaultSettings.language
+        sttEngine = DefaultSettings.sttEngine
         autoEnter = DefaultSettings.autoEnter
         startMinimized = DefaultSettings.startMinimized
         displayRecordingOverlay = DefaultSettings.displayRecordingOverlay

@@ -41,6 +41,7 @@ struct OnboardingView: View {
     @ObservedObject private var securityChecker = SecurityChecker.shared
     @State private var currentStepIndex = 0
     @State private var stepProgress: Double = 0
+    @State private var progressTarget: Double = 0  // Target for smooth animation
     @State private var permissionRefreshTimer: Timer?
     @State private var compilationTimer: Timer?
     @State private var isCompiling: Bool = false
@@ -67,6 +68,25 @@ struct OnboardingView: View {
                 }
             }
         }
+    }
+    
+    private func startSmoothProgressAnimation() {
+        isCompiling = true
+        progressTarget = 0.65  // First target: animate towards 65% while download happens
+        // Animate progress towards target milestone
+        compilationTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
+            DispatchQueue.main.async {
+                if isCompiling && stepProgress < progressTarget {
+                    // Smooth asymptotic approach to target
+                    let remaining = progressTarget - stepProgress
+                    stepProgress += remaining * 0.08
+                }
+            }
+        }
+    }
+    
+    private func updateProgressTarget(_ target: Double) {
+        progressTarget = min(target, 0.99)
     }
 
     private func stopCompilationAnimation() {
@@ -105,12 +125,69 @@ struct OnboardingView: View {
             }
         ),
         OnboardingStep(
-            title: "Download Voice-To-Text Model",
+            title: "Download Parakeet Model",
             description: """
-            Required for:
-            • Voice-to-text
+            Required voice-to-text engine:
+            • Optimized for Apple Neural Engine
+            • Supports 25 European languages
+            • Fast inference on Apple Silicon
 
-            Click "Download" to download the model.
+            This is the default speech-to-text engine.
+            """,
+            imageName: "waveform.badge.plus",
+            buttonText: "Download",
+            source: "https://huggingface.co/\(ParakeetModelRepo)/\(ParakeetModelName)",
+            action: { [self] progress in
+                Task {
+                    do {
+                        // Start smooth animation immediately
+                        await MainActor.run {
+                            startSmoothProgressAnimation()
+                        }
+                        
+                        try await ModelStorage.shared.downloadParakeetModels { downloadProgress in
+                            Logger.log("Downloading Parakeet model: \(downloadProgress)", log: Logger.general)
+                            Task { @MainActor in
+                                // Update target based on milestones from download
+                                // 0.70 -> target 0.85, 0.90 -> target 0.95
+                                if downloadProgress >= 0.90 {
+                                    updateProgressTarget(0.95)
+                                } else if downloadProgress >= 0.70 {
+                                    updateProgressTarget(0.85)
+                                }
+                            }
+                        }
+                        
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            progress(1.0)
+                        }
+                    } catch {
+                        Logger.log("Failed to download Parakeet model: \(error)", log: Logger.general, type: .error)
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
+                        do {
+                            try ModelStorage.shared.deleteParakeetModels()
+                        } catch {
+                            Logger.log("Failed to delete Parakeet model: \(error)", log: Logger.general, type: .error)
+                        }
+                    }
+                }
+            },
+            skipCondition: {
+                ModelStorage.shared.parakeetModelsExist()
+            },
+            progressBar: true
+        ),
+        OnboardingStep(
+            title: "Download WhisperKit Model (Optional)",
+            description: """
+            Optional alternative voice-to-text engine:
+            • Supports 99 languages
+
+            Click "Download" to download, or "Next" to use Parakeet instead.
             """,
             imageName: "mic.fill",
             buttonText: "Download",
@@ -126,10 +203,15 @@ struct OnboardingView: View {
                         await MainActor.run { startCompilationAnimation() }
                         try await ModelStorage.shared.preLoadModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         await MainActor.run { stopCompilationAnimation() }
-                        progress(1.0)
+                        await MainActor.run {
+                            progress(1.0)
+                        }
                     } catch {
                         Logger.log("Failed to download voice-to-text model: \(error)", log: Logger.general, type: .error)
-                        await MainActor.run { stopCompilationAnimation() }
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
                         do {
                             try ModelStorage.shared.deleteModel(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName)
                         } catch {
@@ -145,12 +227,12 @@ struct OnboardingView: View {
             progressBar: true
         ),
         OnboardingStep(
-            title: "Download LLM Model",
+            title: "Download LLM Model (Optional)",
             description: """
-            Required for:
-            • Text-enhancing
+            Optional for:
+            • Text-enhancing and prompts
 
-            Click "Download" to download the model.
+            Click "Download" to download the model, or "Next" to download later from Settings.
             """,
             imageName: "brain.head.profile",
             buttonText: "Download",
@@ -170,7 +252,10 @@ struct OnboardingView: View {
                         progress(1.0)
                     } catch {
                         Logger.log("Failed to download LLM model: \(error)", log: Logger.general, type: .error)
-                        await MainActor.run { stopCompilationAnimation() }
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
                         do {
                             try ModelStorage.shared.deleteModel(modelRepo: modelID, modelName: "")
                         } catch {
@@ -256,6 +341,18 @@ struct OnboardingView: View {
 
 
     private func completeOnboarding() {
+        // Set STT engine based on which models are downloaded
+        // Priority: Parakeet (if downloaded) > WhisperKit (if downloaded) > default (Parakeet)
+        if ModelStorage.shared.parakeetModelsExist() {
+            settings.sttEngine = .parakeet
+            Logger.log("Setting STT engine to Parakeet (model downloaded)", log: Logger.general)
+        } else if ModelStorage.shared.modelExists(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) &&
+                  ModelStorage.shared.isModelLoaded(modelRepo: CurrentSTTModelRepo, modelName: CurrentSTTModelName) {
+            settings.sttEngine = .whisperKit
+            Logger.log("Setting STT engine to WhisperKit (model downloaded)", log: Logger.general)
+        }
+        // Otherwise keep default (parakeet)
+        
         settings.hasCompletedOnboarding = true
 
         if !GenericHelper.isDebug() && !GenericHelper.isLocalRun() {
@@ -372,7 +469,14 @@ struct OnboardingView: View {
                                         .progressViewStyle(.linear)
                                         .frame(width: 200)
 
-                                    let status = stepProgress < 0.8 ? "Downloading... \(Int(stepProgress * 100))%" : "Compiling... \(Int(stepProgress * 100))%"
+                                    // Determine status text based on progress
+                                    // Note: Parakeet doesn't have a compilation phase, so we use "Processing..." instead
+                                    let isParakeetStep = currentStep.title.contains("Parakeet")
+                                    let status = stepProgress < 0.8 
+                                        ? "Downloading... \(Int(stepProgress * 100))%"
+                                        : (isParakeetStep 
+                                            ? "Processing... \(Int(stepProgress * 100))%"
+                                            : "Compiling... \(Int(stepProgress * 100))%")
                                     Text(status)
                                         .font(.system(size: 14, weight: .medium))
                                         .foregroundColor(.gray)

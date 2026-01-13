@@ -2,23 +2,6 @@ import Foundation
 import CryptoKit
 import AppKit
 
-struct VersionInfo: Codable {
-    let version: String
-    let releaseNotes: [String]
-    let hash: String
-    let asrEndpoints: [String]
-    let asrCert: String
-
-    enum CodingKeys: String, CodingKey {
-        case version = "version"
-        case releaseNotes = "release_notes"
-        case hash = "hash"
-        case asrEndpoints = "asr_endpoints"
-        case asrCert = "asr_cert"
-    }
-}
-
-
 enum GenericHelper {
 
     static func getAppSupportDirectory() -> URL {

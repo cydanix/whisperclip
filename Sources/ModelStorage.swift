@@ -162,6 +162,7 @@ class ModelStorage {
     }
 
     func deleteAllModels() {
+        // Delete WhisperKit and LLM models
         let modelDir = downloader.downloadBase
         if GenericHelper.folderExists(folder: modelDir) {
             do {
@@ -170,5 +171,52 @@ class ModelStorage {
                 Logger.log("Failed to delete all models: \(error.localizedDescription)", log: Logger.general)
             }
         }
+        
+        // Also delete Parakeet models (stored in FluidAudio's directory)
+        do {
+            try LocalParakeet.deleteModels()
+        } catch {
+            Logger.log("Failed to delete Parakeet models: \(error.localizedDescription)", log: Logger.general)
+        }
+    }
+    
+    // MARK: - Total Storage Accounting
+    
+    /// Get total size of all downloaded models (including Parakeet)
+    func getTotalModelsSize() -> Int64 {
+        var totalSize: Int64 = 0
+        
+        // WhisperKit/LLM models
+        let modelDir = downloader.downloadBase
+        if GenericHelper.folderExists(folder: modelDir) {
+            totalSize += GenericHelper.folderSize(folder: modelDir)
+        }
+        
+        // Parakeet models
+        totalSize += LocalParakeet.getModelsSize()
+        
+        return totalSize
+    }
+    
+    // MARK: - Parakeet Model Support
+    
+    func parakeetModelsExist() -> Bool {
+        return LocalParakeet.modelsExist()
+    }
+    
+    func parakeetModelsLoaded() -> Bool {
+        return LocalParakeet.modelsExist()
+    }
+    
+    func downloadParakeetModels(progress: @escaping (Double) -> Void) async throws {
+        try await LocalParakeet.downloadModels(progress: progress)
+    }
+    
+    func deleteParakeetModels() throws {
+        try LocalParakeet.deleteModels()
+    }
+    
+    func getParakeetModelsSize() -> Int64 {
+        return LocalParakeet.getModelsSize()
     }
 }

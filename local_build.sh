@@ -6,6 +6,7 @@ CONFIG=${1:-Release}
 xcodebuild \
   -scheme WhisperClip \
   -configuration $CONFIG \
-  -destination 'platform=macOS' \
+  -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath ./build \
+  ARCHS=arm64 \
   build

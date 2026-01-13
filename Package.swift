@@ -14,6 +14,7 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.12.0"),
         .package(url: "https://github.com/ml-explore/mlx-swift-examples.git", branch: "main"),
         .package(url: "https://github.com/ml-explore/mlx-swift", exact: "0.21.2"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.10.0"),
     ],
     targets: [
         .executableTarget(
@@ -23,6 +24,7 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-examples"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-examples"),
                 .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "FluidAudio", package: "FluidAudio"),
             ],
             path: "Sources",
             linkerSettings: [

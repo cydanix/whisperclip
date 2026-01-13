@@ -21,6 +21,7 @@ struct SettingsView: View {
     
     // Delete models confirmation state
     @State private var showingDeleteModelsConfirmation = false
+    @State private var totalModelsSize: Int64 = 0
     
     // Language options
     private let languageOptions = [
@@ -85,30 +86,9 @@ struct SettingsView: View {
             // General Settings Tab
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Transcription Language")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Picker("Language", selection: $selectedLanguage) {
-                                ForEach(languageOptions, id: \.0) { option in
-                                    Text(option.1).tag(option.0)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .onChange(of: selectedLanguage) { _, newValue in
-                                settings.language = newValue
-                            }
-                            
-                            Text("Select the language for speech recognition. Auto Detect will try to identify the language automatically.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
+                    sttEngineSection
+                    
+                    languageSection
                     
                     GroupBox {
                         VStack(alignment: .leading, spacing: 12) {
@@ -202,11 +182,12 @@ struct SettingsView: View {
                                 .foregroundColor(.gray)
                             
                             HStack {
-                                Button("Delete All Models") {
+                                Button("Delete All Models (\(GenericHelper.formatSize(size: totalModelsSize)))") {
                                     showingDeleteModelsConfirmation = true
                                 }
                                 .buttonStyle(.bordered)
                                 .foregroundColor(.red)
+                                .disabled(totalModelsSize == 0)
                                 
                                 Spacer()
                             }
@@ -215,6 +196,9 @@ struct SettingsView: View {
                     }
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
+                    .onAppear {
+                        refreshModelsSize()
+                    }
                     
                     GroupBox {
                         VStack(alignment: .leading, spacing: 12) {
@@ -474,6 +458,73 @@ struct SettingsView: View {
         }
     }
     
+    // MARK: - View Sections
+    
+    private var sttEngineSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Speech-to-Text Engine")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Picker("Engine", selection: $settings.sttEngine) {
+                    ForEach(STTEngine.allCases, id: \.self) { engine in
+                        Text(engine.displayName).tag(engine)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: settings.sttEngine) { _, newValue in
+                    // When Parakeet is selected, force language to auto (Parakeet auto-detects)
+                    if newValue == .parakeet {
+                        settings.language = "auto"
+                        selectedLanguage = "auto"
+                    }
+                }
+                
+                Text("Both engines support multiple languages. Parakeet uses CoreML/ANE for fast inference.")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            .padding()
+        }
+        .background(Color.gray.opacity(0.2))
+        .cornerRadius(8)
+    }
+    
+    private var languageSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Transcription Language")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Picker("Language", selection: $selectedLanguage) {
+                    ForEach(languageOptions, id: \.0) { option in
+                        Text(option.1).tag(option.0)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(settings.sttEngine == .parakeet)
+                .onChange(of: selectedLanguage) { _, newValue in
+                    settings.language = newValue
+                }
+                
+                if settings.sttEngine == .parakeet {
+                    Text("Parakeet automatically detects the spoken language. Language selection is only available with WhisperKit.")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                } else {
+                    Text("Select the language for speech recognition. Auto Detect will try to identify the language automatically.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding()
+        }
+        .background(Color.gray.opacity(0.2))
+        .cornerRadius(8)
+    }
+    
     private func loadCurrentSettings() {
         selectedLanguage = settings.language
         selectedModifierRawValue = settings.hotkeyModifier.rawValue
@@ -563,6 +614,11 @@ struct SettingsView: View {
     private func deleteAllModels() {
         ModelStorage.shared.deleteAllModels()
         Logger.log("All models deleted by user", log: Logger.general)
+        refreshModelsSize()
+    }
+    
+    private func refreshModelsSize() {
+        totalModelsSize = ModelStorage.shared.getTotalModelsSize()
     }
 }
 

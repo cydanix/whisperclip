@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.49] - 2026-02-07
+
+### Added
+- **AI Meeting Notes**: Granola-style intelligent meeting capture with live transcription, structured summaries, and action items.
+  - **Live transcription**: Real-time speech-to-text during meetings with animated waveform visualization.
+  - **Speaker diarization**: Automatic identification of "Me" vs "Others" in the conversation.
+  - **AI summaries**: Auto-generated brief and detailed meeting summaries using embedded LLM.
+  - **Key topics extraction**: Automatically identifies and summarizes main discussion points.
+  - **Action items**: AI extracts action items with assignee detection from meeting content.
+  - **Decision tracking**: Captures key decisions made during the meeting.
+  - **Follow-ups**: Lists items that need follow-up after the meeting.
+  - **Post-meeting Q&A**: Ask questions about any meeting and get AI-powered answers from the transcript.
+  - **Meeting app detection**: Auto-detects Zoom, Microsoft Teams, Google Meet, Webex, Slack, Discord, and FaceTime.
+  - **Export options**: Copy meetings as Markdown or export transcripts and summaries.
+- **Meeting Notes sidebar panel**: Beautiful UI with live recording view and meeting list with search.
+- **Meeting detail view**: Full meeting notes with tabs for Summary, Transcript, Actions, and Q&A.
+- **Meeting waveform visualization**: Animated audio level display during recording.
+
 ## [1.0.48] - 2026-02-06
 
 ### Added

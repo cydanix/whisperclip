@@ -4,6 +4,7 @@ import AppKit
 enum SidebarItem: String, CaseIterable, Identifiable {
     case microphone = "Microphone"
     case file = "Audio File"
+    case meetings = "Meetings"
     case history = "History"
     
     var id: String { rawValue }
@@ -12,6 +13,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .microphone: return "mic.fill"
         case .file: return "doc.fill.badge.plus"
+        case .meetings: return "text.bubble.fill"
         case .history: return "clock.arrow.circlepath"
         }
     }
@@ -20,6 +22,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .microphone: return .red
         case .file: return .blue
+        case .meetings: return .teal
         case .history: return .purple
         }
     }
@@ -28,6 +31,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .microphone: return "Record voice"
         case .file: return "Import audio"
+        case .meetings: return "AI meeting notes"
         case .history: return "Past transcriptions"
         }
     }
@@ -139,6 +143,8 @@ struct ContentView: View {
                 MicrophoneView()
             case .file:
                 FileTranscriptionView()
+            case .meetings:
+                MeetingNotesView()
             case .history:
                 HistoryView()
             }

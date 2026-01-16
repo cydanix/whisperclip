@@ -271,6 +271,60 @@ struct OnboardingView: View {
             progressBar: true
         ),
         OnboardingStep(
+            title: "Download Speaker ID Model (Optional)",
+            description: """
+            Optional for Meeting Notes:
+            • Speaker diarization (who said what)
+            • Meeting transcription with speaker labels
+
+            Click "Download" to enable speaker identification, or "Next" to skip.
+            """,
+            imageName: "person.2.wave.2.fill",
+            buttonText: "Download",
+            source: "https://huggingface.co/FluidInference/speaker-diarization-coreml",
+            action: { [self] progress in
+                Task {
+                    do {
+                        // Start smooth animation
+                        await MainActor.run {
+                            startSmoothProgressAnimation()
+                        }
+                        
+                        try await ModelStorage.shared.downloadDiarizerModels { downloadProgress in
+                            Logger.log("Downloading diarizer model: \(downloadProgress)", log: Logger.general)
+                            Task { @MainActor in
+                                if downloadProgress >= 0.90 {
+                                    updateProgressTarget(0.95)
+                                } else if downloadProgress >= 0.50 {
+                                    updateProgressTarget(0.85)
+                                }
+                            }
+                        }
+                        
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            progress(1.0)
+                        }
+                    } catch {
+                        Logger.log("Failed to download diarizer model: \(error)", log: Logger.general, type: .error)
+                        await MainActor.run {
+                            stopCompilationAnimation()
+                            stepProgress = 0  // Reset progress to allow retry or skip
+                        }
+                        do {
+                            try ModelStorage.shared.deleteDiarizerModels()
+                        } catch {
+                            Logger.log("Failed to delete diarizer model: \(error)", log: Logger.general, type: .error)
+                        }
+                    }
+                }
+            },
+            skipCondition: {
+                ModelStorage.shared.diarizerModelsExist()
+            },
+            progressBar: true
+        ),
+        OnboardingStep(
             title: "Accessibility Permission",
             description: """
             Required for:

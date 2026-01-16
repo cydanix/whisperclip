@@ -5,7 +5,7 @@
 ### Added
 - **AI Meeting Notes**: Granola-style intelligent meeting capture with live transcription, structured summaries, and action items.
   - **Live transcription**: Real-time speech-to-text during meetings with animated waveform visualization.
-  - **Speaker diarization**: Automatic identification of "Me" vs "Others" in the conversation.
+  - **Speaker diarization**: Uses FluidAudio's DiarizerManager for proper speaker separation with WeSpeaker embeddings and clustering. Automatically identifies "Me" vs "Others" in the conversation.
   - **AI summaries**: Auto-generated brief and detailed meeting summaries using embedded LLM.
   - **Key topics extraction**: Automatically identifies and summarizes main discussion points.
   - **Action items**: AI extracts action items with assignee detection from meeting content.

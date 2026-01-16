@@ -95,10 +95,11 @@ struct MeetingNotesView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 
-                // Audio level visualization
-                audioLevelBar
+                // Audio level visualization with waveform
+                MeetingWaveformView(recorder: recorder)
+                    .frame(height: 60)
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
+                    .padding(.top, 12)
             }
             
             Divider()
@@ -199,29 +200,6 @@ struct MeetingNotesView: View {
         .onDisappear {
             pulseAnimation = false
         }
-    }
-    
-    private var audioLevelBar: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                // Background
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.white.opacity(0.1))
-                
-                // Level indicator
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(
-                            colors: [.green, .yellow, .orange, .red],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: geometry.size.width * CGFloat(session.audioLevel))
-                    .animation(.easeOut(duration: 0.1), value: session.audioLevel)
-            }
-        }
-        .frame(height: 8)
     }
     
     // MARK: - Meeting List View

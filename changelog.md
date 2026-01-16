@@ -17,6 +17,10 @@
 - **Meeting Notes sidebar panel**: Beautiful UI with live recording view and meeting list with search.
 - **Meeting detail view**: Full meeting notes with tabs for Summary, Transcript, Actions, and Q&A.
 - **Meeting waveform visualization**: Animated audio level display during recording.
+- **Speaker ID model in onboarding**: Optional download step for speaker diarization model (required for Meeting Notes speaker identification).
+
+### Improved
+- **Live transcription reliability**: Fixed audio buffer errors during meeting recording by copying recording data before processing.
 
 ## [1.0.46] - 2026-01-13
 

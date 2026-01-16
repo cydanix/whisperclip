@@ -85,15 +85,20 @@ class MeetingRecorder: NSObject, ObservableObject {
             throw MeetingRecorderError.modelLoadFailed(error.localizedDescription)
         }
         
-        // Initialize speaker diarization
-        do {
-            let diarizerModels = try await DiarizerModels.downloadIfNeeded()
-            diarizerManager = DiarizerManager()
-            diarizerManager?.initialize(models: diarizerModels)
-            Logger.log("Speaker diarization initialized", log: Logger.general)
-        } catch {
-            Logger.log("Failed to initialize diarization (continuing without): \(error)", log: Logger.general, type: .error)
-            // Continue without diarization - it's optional
+        // Initialize speaker diarization (only if models are pre-downloaded via onboarding)
+        if ModelStorage.shared.diarizerModelsExist() {
+            do {
+                // Load pre-downloaded models (no download needed)
+                let diarizerModels = try await DiarizerModels.load()
+                diarizerManager = DiarizerManager()
+                diarizerManager?.initialize(models: diarizerModels)
+                Logger.log("Speaker diarization initialized", log: Logger.general)
+            } catch {
+                Logger.log("Failed to initialize diarization (continuing without): \(error)", log: Logger.general, type: .error)
+                // Continue without diarization - it's optional
+            }
+        } else {
+            Logger.log("Speaker diarization models not downloaded - skipping (download via Setup Guide)", log: Logger.general)
         }
         
         // Create recording directory
@@ -225,23 +230,73 @@ class MeetingRecorder: NSObject, ObservableObject {
     }
     
     private func processCurrentChunk(isFinal: Bool) async {
-        guard let url = outputURL, let asrManager = asrManager else { return }
+        guard let url = outputURL, let asrManager = asrManager else {
+            Logger.log("processCurrentChunk: missing url or asrManager", log: Logger.general, type: .error)
+            return
+        }
         
         // Check if file exists and has content
-        guard GenericHelper.fileExists(file: url) else { return }
+        guard GenericHelper.fileExists(file: url) else {
+            Logger.log("processCurrentChunk: file does not exist", log: Logger.general, type: .error)
+            return
+        }
         
         let chunkStartTime = lastTranscriptionTime
         let chunkEndTime = recordingDuration
         
-        // Need at least 1 second of new audio
-        guard chunkEndTime > chunkStartTime + 1.0 else { return }
+        // Need at least 2 seconds of new audio for reliable processing
+        guard chunkEndTime > chunkStartTime + 2.0 else {
+            Logger.log("processCurrentChunk: not enough new audio (\(chunkEndTime - chunkStartTime)s)", log: Logger.general)
+            return
+        }
+        
+        Logger.log("processCurrentChunk: processing \(chunkStartTime)s to \(chunkEndTime)s (isFinal: \(isFinal))", log: Logger.general)
+        
+        // Create a proper WAV file from the current recording
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("meeting_chunk_\(UUID().uuidString).wav")
+        
+        var audioSamplesForTranscription: [Float]?
         
         do {
-            // Load audio samples for diarization
-            var audioSamples: [Float]?
-            if let converter = audioConverter {
-                audioSamples = try? converter.resampleAudioFile(url)
+            if !isFinal, let recorder = audioRecorder, recorder.isRecording {
+                // Pause recording to safely read the file
+                recorder.pause()
+                
+                // Small delay to ensure file is flushed
+                try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+                
+                // Read audio using AVAudioFile and write a proper copy
+                audioSamplesForTranscription = try readAndCopyAudioFile(from: url, to: tempURL)
+                
+                // Resume recording immediately
+                recorder.record()
+            } else {
+                // Final chunk or recording already stopped
+                audioSamplesForTranscription = try readAndCopyAudioFile(from: url, to: tempURL)
             }
+            
+            guard let samples = audioSamplesForTranscription, samples.count > sampleRate * 2 else {
+                Logger.log("processCurrentChunk: not enough audio samples", log: Logger.general)
+                return
+            }
+            
+            Logger.log("processCurrentChunk: created temp file with \(samples.count) samples", log: Logger.general)
+            
+        } catch {
+            Logger.log("processCurrentChunk: failed to process audio file: \(error)", log: Logger.general, type: .error)
+            return
+        }
+        
+        // Clean up temp file when done
+        defer {
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+        
+        // Try to process the chunk
+        do {
+            // Use the samples we already read for diarization
+            let audioSamples = audioSamplesForTranscription
             
             // Perform speaker diarization if we have enough samples
             var detectedSpeaker: Speaker = .unknown
@@ -264,21 +319,30 @@ class MeetingRecorder: NSObject, ObservableObject {
                         detectedSpeaker = mapToSpeaker(speakerId: lastSegment.speakerId)
                     }
                 } catch {
-                    Logger.log("Diarization error: \(error)", log: Logger.general, type: .error)
+                    Logger.log("processCurrentChunk: diarization error (non-fatal): \(error)", log: Logger.general)
                 }
             }
             
-            // Transcribe the audio
-            let transcriptionResult = try await asrManager.transcribe(url)
+            // Transcribe the audio from temp file
+            Logger.log("processCurrentChunk: starting transcription...", log: Logger.general)
+            let transcriptionResult = try await asrManager.transcribe(tempURL)
             
-            guard !transcriptionResult.text.isEmpty else { return }
+            Logger.log("processCurrentChunk: transcription result: '\(transcriptionResult.text.prefix(100))'", log: Logger.general)
+            
+            guard !transcriptionResult.text.isEmpty else {
+                Logger.log("processCurrentChunk: empty transcription result", log: Logger.general)
+                return
+            }
             
             // Clean and deduplicate
             let normalizedText = transcriptionResult.text.trimmingCharacters(in: .whitespacesAndNewlines)
             
             // Extract only new text (simple deduplication)
             let newText = extractNewText(normalizedText)
-            guard !newText.isEmpty else { return }
+            guard !newText.isEmpty else {
+                Logger.log("processCurrentChunk: no new text after deduplication (normalized: '\(normalizedText.prefix(50))')", log: Logger.general)
+                return
+            }
             
             // Use text-based heuristic if diarization didn't detect speaker
             if detectedSpeaker == .unknown {
@@ -298,14 +362,28 @@ class MeetingRecorder: NSObject, ObservableObject {
             lastTranscriptionTime = chunkEndTime
             processedSegmentTexts.insert(newText)
             
+            Logger.log("processCurrentChunk: created segment #\(segmentCount): '\(newText.prefix(50))'", log: Logger.general)
+            
             transcriptCallback?(segment)
             
-        } catch {
-            Logger.log("Chunk processing error: \(error)", log: Logger.general, type: .error)
+        } catch let error as NSError {
+            // Check if this is the buffer capacity error - skip silently
+            if error.domain == "com.apple.coreaudio.avfaudio" && error.code == -50 {
+                Logger.log("processCurrentChunk: audio buffer not ready (error -50), will retry", log: Logger.general)
+                return
+            }
+            
+            // Log other errors but don't spam the error callback
+            Logger.log("processCurrentChunk: error: \(error.domain) code=\(error.code) - \(error.localizedDescription)", log: Logger.general, type: .error)
             lastError = error.localizedDescription
-            if !isFinal {
+            
+            // Only report truly unexpected errors (not during final processing)
+            if !isFinal && error.code != -50 {
                 errorCallback?(error)
             }
+        } catch {
+            Logger.log("processCurrentChunk: unexpected error: \(error)", log: Logger.general, type: .error)
+            lastError = error.localizedDescription
         }
     }
     
@@ -377,6 +455,68 @@ class MeetingRecorder: NSObject, ObservableObject {
     }
     
     // MARK: - Helpers
+    
+    /// Read raw PCM audio data and create a proper WAV file
+    /// This works even when recording is paused (WAV header not finalized)
+    private func readAndCopyAudioFile(from sourceURL: URL, to destURL: URL) throws -> [Float] {
+        // Read raw file data
+        let fileData = try Data(contentsOf: sourceURL)
+        
+        // WAV header is 44 bytes for standard PCM
+        let headerSize = 44
+        guard fileData.count > headerSize else {
+            throw MeetingRecorderError.transcriptionFailed("File too small")
+        }
+        
+        // Extract PCM data (skip header)
+        let pcmData = fileData.subdata(in: headerSize..<fileData.count)
+        
+        // Our recording settings: 16-bit PCM, mono, 16kHz
+        // Convert Int16 samples to Float
+        let int16Count = pcmData.count / 2
+        guard int16Count > 0 else {
+            throw MeetingRecorderError.transcriptionFailed("No PCM samples")
+        }
+        
+        var floatSamples: [Float] = []
+        floatSamples.reserveCapacity(int16Count)
+        
+        pcmData.withUnsafeBytes { rawBuffer in
+            let int16Buffer = rawBuffer.bindMemory(to: Int16.self)
+            for i in 0..<int16Count {
+                let sample = Float(int16Buffer[i]) / Float(Int16.max)
+                floatSamples.append(sample)
+            }
+        }
+        
+        // Create a proper WAV file with correct header
+        try writeWAVFile(samples: floatSamples, to: destURL)
+        
+        return floatSamples
+    }
+    
+    /// Write float samples to a WAV file with proper header
+    private func writeWAVFile(samples: [Float], to url: URL) throws {
+        let format = AVAudioFormat(standardFormatWithSampleRate: Double(sampleRate), channels: 1)!
+        
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else {
+            throw MeetingRecorderError.transcriptionFailed("Failed to create output buffer")
+        }
+        
+        // Copy samples to buffer
+        guard let floatData = buffer.floatChannelData else {
+            throw MeetingRecorderError.transcriptionFailed("Failed to get buffer channel data")
+        }
+        
+        for (i, sample) in samples.enumerated() {
+            floatData[0][i] = sample
+        }
+        buffer.frameLength = AVAudioFrameCount(samples.count)
+        
+        // Write to file
+        let outputFile = try AVAudioFile(forWriting: url, settings: format.settings)
+        try outputFile.write(from: buffer)
+    }
     
     private func getRecordingDirectory() -> URL {
         let appDir = GenericHelper.getAppSupportDirectory()

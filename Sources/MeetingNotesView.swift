@@ -7,7 +7,6 @@ struct MeetingNotesView: View {
     @ObservedObject private var recorder = MeetingRecorder.shared
     
     @State private var selectedMeeting: MeetingNote?
-    @State private var showingMeetingDetail = false
     @State private var searchText = ""
     @State private var showingClearConfirmation = false
     @State private var pulseAnimation = false
@@ -40,10 +39,8 @@ struct MeetingNotesView: View {
             }
         }
         .foregroundColor(.white)
-        .sheet(isPresented: $showingMeetingDetail) {
-            if let meeting = selectedMeeting {
-                MeetingDetailView(meeting: meeting)
-            }
+        .sheet(item: $selectedMeeting) { meeting in
+            MeetingDetailView(meeting: meeting)
         }
         .alert("Clear All Meetings", isPresented: $showingClearConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -288,7 +285,6 @@ struct MeetingNotesView: View {
                             MeetingListRow(meeting: meeting, dateFormatter: dateFormatter)
                                 .onTapGesture {
                                     selectedMeeting = meeting
-                                    showingMeetingDetail = true
                                 }
                                 .contextMenu {
                                     Button {

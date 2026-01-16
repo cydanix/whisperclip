@@ -1,5 +1,6 @@
 import Foundation
 import WhisperKit
+import FluidAudio
 
 class ModelStorage {
     static let shared = ModelStorage()
@@ -180,11 +181,18 @@ class ModelStorage {
         } catch {
             Logger.log("Failed to delete Parakeet models: \(error.localizedDescription)", log: Logger.general)
         }
+        
+        // Delete Diarizer models (for Meeting Notes)
+        do {
+            try deleteDiarizerModels()
+        } catch {
+            Logger.log("Failed to delete Diarizer models: \(error.localizedDescription)", log: Logger.general)
+        }
     }
     
     // MARK: - Total Storage Accounting
     
-    /// Get total size of all downloaded models (including Parakeet)
+    /// Get total size of all downloaded models (including Parakeet and Diarizer)
     func getTotalModelsSize() -> Int64 {
         var totalSize: Int64 = 0
         
@@ -196,6 +204,9 @@ class ModelStorage {
         
         // Parakeet models
         totalSize += LocalParakeet.getModelsSize()
+        
+        // Diarizer models (for Meeting Notes)
+        totalSize += getDiarizerModelsSize()
         
         return totalSize
     }
@@ -220,5 +231,68 @@ class ModelStorage {
     
     func getParakeetModelsSize() -> Int64 {
         return LocalParakeet.getModelsSize()
+    }
+    
+    // MARK: - Diarizer Model Support (for Meeting Notes)
+    
+    /// Get the directory where diarizer models are stored by FluidAudio
+    func getDiarizerModelsDirectory() -> URL {
+        return DiarizerModels.defaultModelsDirectory()
+    }
+    
+    /// Check if diarizer models exist
+    func diarizerModelsExist() -> Bool {
+        let modelDir = getDiarizerModelsDirectory()
+        
+        // Check if directory exists and has required model files
+        guard FileManager.default.fileExists(atPath: modelDir.path) else {
+            return false
+        }
+        
+        // Check for required model files (segmentation and embedding)
+        do {
+            let contents = try FileManager.default.contentsOfDirectory(at: modelDir, includingPropertiesForKeys: nil)
+            let mlmodelcFiles = contents.filter { $0.pathExtension == "mlmodelc" }
+            // Need at least 2 models (segmentation + embedding)
+            return mlmodelcFiles.count >= 2
+        } catch {
+            return false
+        }
+    }
+    
+    /// Download diarizer models for speaker identification
+    func downloadDiarizerModels(progress: @escaping (Double) -> Void) async throws {
+        let freeSpace = GenericHelper.getFreeDiskSpace(path: GenericHelper.getAppSupportDirectory())
+        if freeSpace < MinimalFreeDiskSpace {
+            await WhisperClip.shared?.showNoEnoughDiskSpaceAlert(freeSpace: freeSpace)
+            throw NSError(domain: "ModelStorage", code: 2, userInfo: [NSLocalizedDescriptionKey: "Not enough disk space"])
+        }
+        
+        Logger.log("Downloading diarizer models...", log: Logger.general)
+        progress(0.1)
+        
+        // FluidAudio handles its own download and caching
+        let _ = try await DiarizerModels.downloadIfNeeded()
+        
+        progress(1.0)
+        Logger.log("Diarizer models downloaded successfully", log: Logger.general)
+    }
+    
+    /// Delete diarizer models
+    func deleteDiarizerModels() throws {
+        let modelDir = getDiarizerModelsDirectory()
+        
+        guard FileManager.default.fileExists(atPath: modelDir.path) else {
+            return
+        }
+        
+        try FileManager.default.removeItem(at: modelDir)
+        Logger.log("Diarizer models deleted", log: Logger.general)
+    }
+    
+    /// Get size of diarizer models
+    func getDiarizerModelsSize() -> Int64 {
+        let modelDir = getDiarizerModelsDirectory()
+        return GenericHelper.folderSize(folder: modelDir)
     }
 }

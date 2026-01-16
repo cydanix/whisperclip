@@ -104,10 +104,12 @@ class MeetingSession: ObservableObject {
             currentMeetingId = meeting.id
             
             // Start recording with transcription callback
+            // Capture meetingId to ensure segments are saved even during shutdown
+            let capturedMeetingId = meeting.id
             try await recorder.startRecording(
                 onTranscript: { [weak self] segment in
                     Task { @MainActor in
-                        self?.handleNewSegment(segment)
+                        self?.handleNewSegment(segment, forMeetingId: capturedMeetingId)
                     }
                 },
                 onError: { [weak self] error in
@@ -143,30 +145,47 @@ class MeetingSession: ObservableObject {
         
         status = .stopping
         
-        // Stop recording
+        // Stop recording - this may add final segments
         _ = await recorder.stopRecording()
+        
+        // Give a brief moment for any pending segment callbacks to process
+        try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
         
         // Stop auto-save
         stopAutoSave()
         
-        // Mark meeting as processing
-        if var meeting = storage.getMeeting(meetingId) {
-            meeting.markAsProcessing()
-            storage.update(meeting)
-        }
-        
-        status = .processing
-        
-        // Generate summary
-        await generateMeetingSummary(meetingId: meetingId)
-        
-        // Complete the meeting
+        // Mark meeting as completed immediately (UI can show it)
+        // Summary will be generated in the background
         storage.completeMeeting(meetingId)
         
-        isActive = false
-        status = .completed
+        // Save the live transcript count before resetting
+        let segmentCount = liveTranscript.count
         
-        Logger.log("Meeting session completed: \(meetingId)", log: Logger.general)
+        // Reset session state immediately so user can interact with the app
+        isActive = false
+        currentMeetingId = nil
+        status = .completed
+        liveTranscript = []
+        
+        Logger.log("Meeting session completed: \(meetingId) with \(segmentCount) segments", log: Logger.general)
+        
+        // Generate summary in the background (non-blocking)
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            // Mark as processing
+            await MainActor.run {
+                if var meeting = self.storage.getMeeting(meetingId) {
+                    meeting.markAsProcessing()
+                    self.storage.update(meeting)
+                }
+            }
+            
+            // Generate summary (this is the slow part)
+            await self.generateMeetingSummary(meetingId: meetingId)
+            
+            Logger.log("Meeting summary generation completed: \(meetingId)", log: Logger.general)
+        }
     }
     
     /// Cancel the current meeting without saving summary
@@ -196,22 +215,27 @@ class MeetingSession: ObservableObject {
     
     // MARK: - Segment Handling
     
-    private func handleNewSegment(_ segment: MeetingSegment) {
-        guard let meetingId = currentMeetingId else { return }
+    private func handleNewSegment(_ segment: MeetingSegment, forMeetingId meetingId: UUID) {
+        // Add to live transcript (only if still active)
+        if isActive {
+            liveTranscript.append(segment)
+        }
         
-        // Add to live transcript
-        liveTranscript.append(segment)
-        
-        // Add to storage
+        // Add to storage - always save even if session is ending
         storage.addSegment(segment, to: meetingId)
         
-        Logger.log("New segment added: \(segment.text.prefix(50))...", log: Logger.general)
+        Logger.log("New segment added to meeting \(meetingId): \(segment.text.prefix(50))...", log: Logger.general)
     }
     
     // MARK: - Summary Generation
     
     private func generateMeetingSummary(meetingId: UUID) async {
-        guard let meeting = storage.getMeeting(meetingId) else { return }
+        // Get meeting on main actor
+        let meeting: MeetingNote? = await MainActor.run {
+            storage.getMeeting(meetingId)
+        }
+        
+        guard let meeting = meeting else { return }
         
         // Check if we have transcript to summarize
         guard !meeting.segments.isEmpty else {
@@ -221,7 +245,12 @@ class MeetingSession: ObservableObject {
         
         do {
             let summary = try await ai.generateSummary(from: meeting)
-            storage.updateSummary(summary, for: meetingId)
+            
+            // Update storage on main actor
+            await MainActor.run {
+                storage.updateSummary(summary, for: meetingId)
+            }
+            
             Logger.log("Summary generated for meeting: \(meetingId)", log: Logger.general)
         } catch {
             Logger.log("Failed to generate summary: \(error)", log: Logger.general, type: .error)

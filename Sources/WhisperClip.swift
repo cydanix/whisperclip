@@ -8,6 +8,8 @@ struct WhisperClip: App {
     @State private var missingPermissions: [String] = []
     @StateObject private var hotkeyManager = HotkeyManager.shared
     @State private var activeSheet: ActiveSheet?
+    @State private var showDiskSpaceAlert = false
+    @State private var diskSpaceAlertMessage = ""
 
     static var shared: WhisperClip? = nil
 
@@ -61,12 +63,8 @@ struct WhisperClip: App {
 
     func showNoEnoughDiskSpaceAlert(freeSpace: Int64) {
         DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = "Insufficient Disk Space"
-            alert.informativeText = "You need at least 20GB of free disk space to download the models. Please free up some space and try again. Available: \(GenericHelper.formatSize(size: freeSpace))"
-            alert.alertStyle = .critical
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
+            diskSpaceAlertMessage = "You need at least 20GB of free disk space to download the models. Please free up some space and try again. Available: \(GenericHelper.formatSize(size: freeSpace))"
+            showDiskSpaceAlert = true
         }
     }
 
@@ -109,6 +107,13 @@ struct WhisperClip: App {
                     }
                 } message: {
                     Text("The following permissions are required for the app to function properly:\n\n" + missingPermissions.joined(separator: "\n") + "\n\nWould you like to open the setup guide to configure these permissions?")
+                }
+                .alert("Insufficient Disk Space", isPresented: $showDiskSpaceAlert) {
+                    Button("OK") {
+                        showDiskSpaceAlert = false
+                    }
+                } message: {
+                    Text(diskSpaceAlertMessage)
                 }
                 .sheet(item: $activeSheet) { sheet in
                     switch sheet {

@@ -309,29 +309,54 @@ enum GenericHelper {
     }
 
     static func getFreeDiskSpace(path: URL) -> Int64 {
-        do {
-            // First try the modern API
-            if let resourceValues = try? path.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) {
-                if let freeSpace = resourceValues.volumeAvailableCapacityForImportantUsage {
-                    Logger.log("Disk free space: \(freeSpace)", log: Logger.general)
-                    return freeSpace
-                }
+        // Ensure the path exists, otherwise get parent directory or fall back to home directory
+        var targetPath = path
+        if !FileManager.default.fileExists(atPath: path.path) {
+            // If directory doesn't exist yet, try parent directory
+            targetPath = path.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: targetPath.path) {
+                // Fall back to home directory if parent also doesn't exist
+                targetPath = FileManager.default.homeDirectoryForCurrentUser
+                Logger.log("Path \(path.path) doesn't exist, using home directory for disk space check", log: Logger.general, type: .info)
             }
-
-            // Fallback to legacy API if modern API fails
-            let fileManager = FileManager.default
-            let attributes = try fileManager.attributesOfFileSystem(forPath: path.path)
-            if let freeSpace = attributes[.systemFreeSize] as? Int64 {
-                Logger.log("Disk free space: \(freeSpace)", log: Logger.general)
+        }
+        
+        // First try the modern API (recommended for iOS 11+ and macOS 10.13+)
+        if let resourceValues = try? targetPath.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) {
+            if let freeSpace = resourceValues.volumeAvailableCapacityForImportantUsage {
+                Logger.log("Disk free space (modern API): \(formatSize(size: freeSpace)) at \(targetPath.path)", log: Logger.general)
                 return freeSpace
             }
-
-            Logger.log("Failed to get free disk space for path: \(path.path)", log: Logger.general, type: .error)
-            return 0
-        } catch {
-            Logger.log("Error getting free disk space: \(error.localizedDescription)", log: Logger.general, type: .error)
-            return 0
         }
+        
+        // Fallback to regular available capacity
+        if let resourceValues = try? targetPath.resourceValues(forKeys: [.volumeAvailableCapacityKey]) {
+            if let freeSpace = resourceValues.volumeAvailableCapacity {
+                Logger.log("Disk free space (available capacity): \(formatSize(size: Int64(freeSpace))) at \(targetPath.path)", log: Logger.general)
+                return Int64(freeSpace)
+            }
+        }
+
+        // Fallback to legacy API if modern API fails
+        do {
+            let fileManager = FileManager.default
+            let attributes = try fileManager.attributesOfFileSystem(forPath: targetPath.path)
+            if let freeSpace = attributes[.systemFreeSize] as? Int64 {
+                Logger.log("Disk free space (legacy API): \(formatSize(size: freeSpace)) at \(targetPath.path)", log: Logger.general)
+                return freeSpace
+            }
+            if let freeSpace = attributes[.systemFreeSize] as? NSNumber {
+                let space = freeSpace.int64Value
+                Logger.log("Disk free space (legacy API NSNumber): \(formatSize(size: space)) at \(targetPath.path)", log: Logger.general)
+                return space
+            }
+        } catch {
+            Logger.log("Error getting free disk space via legacy API: \(error.localizedDescription)", log: Logger.general, type: .error)
+        }
+
+        Logger.log("Failed to get free disk space for path: \(targetPath.path) - all methods failed", log: Logger.general, type: .error)
+        // Return -1 to indicate error instead of 0, so we can distinguish between "no space" and "couldn't check"
+        return -1
     }
 
     static func launchApp(appPath: String) throws {

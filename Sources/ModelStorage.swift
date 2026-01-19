@@ -79,7 +79,10 @@ class ModelStorage {
         try GenericHelper.folderCreate(folder: downloader.downloadBase)
 
         let freeSpace = GenericHelper.getFreeDiskSpace(path: downloader.downloadBase)
-        if freeSpace < MinimalFreeDiskSpace {
+        if freeSpace < 0 {
+            // Could not determine disk space - log warning but allow download to proceed
+            Logger.log("Warning: Could not determine available disk space. Download will proceed but may fail if insufficient space.", log: Logger.general, type: .error)
+        } else if freeSpace < MinimalFreeDiskSpace {
             await WhisperClip.shared?.showNoEnoughDiskSpaceAlert(freeSpace: freeSpace)
             throw NSError(domain: "ModelStorage", code: 2, userInfo: [NSLocalizedDescriptionKey: "Not enough disk space. Required: 20GB, Available: \(GenericHelper.formatSize(size: freeSpace))"])
         }

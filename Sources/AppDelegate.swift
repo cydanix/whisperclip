@@ -19,6 +19,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         Logger.log("Application will terminate", log: Logger.general)
     }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            // No visible windows, show the main window
+            showApp()
+        }
+        return true
+    }
+    
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Don't terminate when all windows are closed - keep running in menu bar
+        return false
+    }
 
     private func setupStatusBarItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -40,7 +53,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showApp() {
-        NSApp.activate(ignoringOtherApps: true)
+        // Show all windows or create a new one if none exist
+        if NSApp.windows.isEmpty || NSApp.windows.allSatisfy({ !$0.isVisible }) {
+            // If no visible windows, activate the app which will trigger window creation
+            NSApp.activate(ignoringOtherApps: true)
+            // Show the first window if it exists but is hidden
+            if let window = NSApp.windows.first {
+                window.makeKeyAndOrderFront(nil)
+            }
+        } else {
+            // Just bring existing windows to front
+            NSApp.activate(ignoringOtherApps: true)
+            NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        }
     }
 
     @objc private func openDonate() {

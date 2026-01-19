@@ -76,9 +76,9 @@ struct WhisperClip: App {
                 .accentColor(.orange)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    // Ensure this process registers as a normal GUI app…
-                    NSApp.setActivationPolicy(.regular)
-                    // …and becomes frontmost so windows get key events
+                    // Set app as accessory (menu bar only, no dock icon)
+                    NSApp.setActivationPolicy(.accessory)
+                    // Activate to ensure windows get key events when shown
                     NSApp.activate(ignoringOtherApps: true)
 
 
@@ -93,7 +93,7 @@ struct WhisperClip: App {
                     if !showPermissionAlert && SettingsStore.shared.hasCompletedOnboarding {
                         if SettingsStore.shared.startMinimized {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                NSApp.windows.first?.miniaturize(nil)
+                                NSApp.windows.first?.close()
                             }
                         }
                     }

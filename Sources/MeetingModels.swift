@@ -1,6 +1,7 @@
 import Foundation
 
 /// Represents a speaker in a meeting
+/// Distinguished by audio source: microphone (Me) vs system audio (Other)
 enum Speaker: String, Codable, CaseIterable {
     case me = "Me"
     case other = "Other"

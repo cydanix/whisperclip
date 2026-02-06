@@ -45,9 +45,11 @@ class LocalParakeet {
         // Check disk space first
         let freeSpace = GenericHelper.getFreeDiskSpace(path: GenericHelper.getAppSupportDirectory())
         if freeSpace < MinimalFreeDiskSpace {
-            await WhisperClip.shared?.showNoEnoughDiskSpaceAlert(freeSpace: freeSpace)
-            throw NSError(domain: "LocalParakeet", code: 2, 
-                          userInfo: [NSLocalizedDescriptionKey: "Not enough disk space. Required: 20GB, Available: \(GenericHelper.formatSize(size: freeSpace))"])
+            let shouldContinue = await WhisperClip.shared?.showNoEnoughDiskSpaceAlert(freeSpace: freeSpace) ?? false
+            if !shouldContinue {
+                throw NSError(domain: "LocalParakeet", code: 2, 
+                              userInfo: [NSLocalizedDescriptionKey: "Not enough disk space. Required: 20GB, Available: \(GenericHelper.formatSize(size: freeSpace))"])
+            }
         }
         
         // Clear any stale cache before downloading

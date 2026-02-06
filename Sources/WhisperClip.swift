@@ -59,15 +59,15 @@ struct WhisperClip: App {
         )
     }
 
-    func showNoEnoughDiskSpaceAlert(freeSpace: Int64) {
-        DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = "Insufficient Disk Space"
-            alert.informativeText = "You need at least 20GB of free disk space to download the models. Please free up some space and try again. Available: \(GenericHelper.formatSize(size: freeSpace))"
-            alert.alertStyle = .critical
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-        }
+    @MainActor
+    func showNoEnoughDiskSpaceAlert(freeSpace: Int64) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Insufficient Disk Space"
+        alert.informativeText = "You need at least 20GB of free disk space to download the models. Available: \(GenericHelper.formatSize(size: freeSpace))\n\nYou can continue anyway, but the download may fail."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Continue Anyway")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     var body: some Scene {

@@ -80,8 +80,10 @@ class ModelStorage {
 
         let freeSpace = GenericHelper.getFreeDiskSpace(path: downloader.downloadBase)
         if freeSpace < MinimalFreeDiskSpace {
-            await WhisperClip.shared?.showNoEnoughDiskSpaceAlert(freeSpace: freeSpace)
-            throw NSError(domain: "ModelStorage", code: 2, userInfo: [NSLocalizedDescriptionKey: "Not enough disk space. Required: 20GB, Available: \(GenericHelper.formatSize(size: freeSpace))"])
+            let shouldContinue = await WhisperClip.shared?.showNoEnoughDiskSpaceAlert(freeSpace: freeSpace) ?? false
+            if !shouldContinue {
+                throw NSError(domain: "ModelStorage", code: 2, userInfo: [NSLocalizedDescriptionKey: "Not enough disk space. Required: 20GB, Available: \(GenericHelper.formatSize(size: freeSpace))"])
+            }
         }
 
         let modelDir = getModelDir(modelRepo: modelRepo, modelName: modelName)

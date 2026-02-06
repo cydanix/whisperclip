@@ -397,15 +397,34 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 30) {
-            // Progress indicator
-            HStack {
-                ForEach(0..<allSteps.count, id: \.self) { index in
-                    Circle()
-                        .fill(currentStepIndex >= index ? Color.accentColor : Color.white.opacity(0.2))
-                        .frame(width: 8, height: 8)
+            // Close button and progress indicator
+            ZStack {
+                HStack {
+                    ForEach(0..<allSteps.count, id: \.self) { index in
+                        Circle()
+                            .fill(currentStepIndex >= index ? Color.accentColor : Color.white.opacity(0.2))
+                            .frame(width: 8, height: 8)
+                    }
+                }
+
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        stopCompilationAnimation()
+                        completeOnboarding()
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.gray)
+                            .frame(width: 24, height: 24)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.top, 20)
+            .padding(.horizontal, 20)
 
             // Current step content
             VStack(spacing: 20) {

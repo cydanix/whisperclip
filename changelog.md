@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.47] - 2026-02-06
+
+### Added
+- **Close button on Setup Guide**: You can now dismiss the onboarding wizard at any time using the close icon in the top-right corner.
+
+### Improved
+- **Low disk space warning**: Instead of blocking model downloads when disk space is low, the app now shows a warning and lets you choose to continue anyway.
+- **Disk space detection reliability**: Fixed `getFreeDiskSpace` returning 0 KB for some users by resolving to the nearest existing directory, adding a home-directory fallback, and logging each step for easier diagnostics.
+
 ## [1.0.46] - 2026-01-13
 
 ### Added

@@ -308,30 +308,61 @@ enum GenericHelper {
         return ProcessInfo.processInfo.environment["SHOW_MORE_MODELS"] == "1"
     }
 
-    static func getFreeDiskSpace(path: URL) -> Int64 {
-        do {
-            // First try the modern API
-            if let resourceValues = try? path.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) {
-                if let freeSpace = resourceValues.volumeAvailableCapacityForImportantUsage {
-                    Logger.log("Disk free space: \(freeSpace)", log: Logger.general)
-                    return freeSpace
-                }
-            }
+    /// Walk up to the nearest existing ancestor so volume queries never fail
+    /// on a not-yet-created subdirectory.
+    private static func nearestExistingDirectory(for path: URL) -> URL {
+        var candidate = path
+        let fileManager = FileManager.default
+        while !fileManager.fileExists(atPath: candidate.path) {
+            let parent = candidate.deletingLastPathComponent()
+            if parent == candidate { break } // reached root
+            candidate = parent
+        }
+        return candidate
+    }
 
-            // Fallback to legacy API if modern API fails
-            let fileManager = FileManager.default
-            let attributes = try fileManager.attributesOfFileSystem(forPath: path.path)
-            if let freeSpace = attributes[.systemFreeSize] as? Int64 {
-                Logger.log("Disk free space: \(freeSpace)", log: Logger.general)
+    static func getFreeDiskSpace(path: URL) -> Int64 {
+        let resolvedPath = nearestExistingDirectory(for: path)
+        Logger.log("Checking disk space at resolved path: \(resolvedPath.path) (requested: \(path.path))", log: Logger.general)
+
+        // First try the modern API
+        do {
+            let resourceValues = try resolvedPath.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            if let freeSpace = resourceValues.volumeAvailableCapacityForImportantUsage {
+                Logger.log("Disk free space (modern API): \(freeSpace)", log: Logger.general)
                 return freeSpace
             }
-
-            Logger.log("Failed to get free disk space for path: \(path.path)", log: Logger.general, type: .error)
-            return 0
+            Logger.log("Modern API returned nil for path: \(resolvedPath.path)", log: Logger.general, type: .error)
         } catch {
-            Logger.log("Error getting free disk space: \(error.localizedDescription)", log: Logger.general, type: .error)
-            return 0
+            Logger.log("Modern API failed for path: \(resolvedPath.path): \(error.localizedDescription)", log: Logger.general, type: .error)
         }
+
+        // Fallback to legacy API
+        do {
+            let attributes = try FileManager.default.attributesOfFileSystem(forPath: resolvedPath.path)
+            if let freeSpace = attributes[.systemFreeSize] as? Int64 {
+                Logger.log("Disk free space (legacy API): \(freeSpace)", log: Logger.general)
+                return freeSpace
+            }
+            Logger.log("Legacy API returned nil for path: \(resolvedPath.path)", log: Logger.general, type: .error)
+        } catch {
+            Logger.log("Legacy API failed for path: \(resolvedPath.path): \(error.localizedDescription)", log: Logger.general, type: .error)
+        }
+
+        // Last resort: query the home directory volume
+        do {
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            let resourceValues = try home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            if let freeSpace = resourceValues.volumeAvailableCapacityForImportantUsage {
+                Logger.log("Disk free space (home fallback): \(freeSpace)", log: Logger.general)
+                return freeSpace
+            }
+        } catch {
+            Logger.log("Home fallback failed: \(error.localizedDescription)", log: Logger.general, type: .error)
+        }
+
+        Logger.log("All disk space checks failed, returning -1", log: Logger.general, type: .error)
+        return -1
     }
 
     static func launchApp(appPath: String) throws {

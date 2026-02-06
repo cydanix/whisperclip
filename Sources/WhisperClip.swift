@@ -139,7 +139,7 @@ struct WhisperClip: App {
                     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
                     let alert = NSAlert()
                     alert.messageText = "\(WhisperClipAppName) \(version)"
-                    alert.informativeText = "© 2025 \(WhisperClipCompanyName)"
+                    alert.informativeText = "© 2026 \(WhisperClipCompanyName)"
                     alert.alertStyle = .informational
                     alert.icon = NSApp.applicationIconImage
                     alert.addButton(withTitle: "OK")

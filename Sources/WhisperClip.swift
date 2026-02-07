@@ -77,26 +77,22 @@ struct WhisperClip: App {
                 .accentColor(.orange)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    // Ensure this process registers as a normal GUI app…
-                    NSApp.setActivationPolicy(.regular)
-                    // …and becomes frontmost so windows get key events
-                    NSApp.activate(ignoringOtherApps: true)
-
-
                     // Show onboarding on first launch
                     if !SettingsStore.shared.hasCompletedOnboarding {
+                        NSApp.setActivationPolicy(.regular)
+                        NSApp.activate(ignoringOtherApps: true)
                         setActiveSheet(sheet: .onboarding)
                     } else if !SecurityChecker.shared.areAllPermissionsGranted() {
+                        NSApp.setActivationPolicy(.regular)
+                        NSApp.activate(ignoringOtherApps: true)
                         missingPermissions = SecurityChecker.shared.getMissingPermissions()
                         showPermissionAlert = true
-                    }
-
-                    if !showPermissionAlert && SettingsStore.shared.hasCompletedOnboarding {
-                        if SettingsStore.shared.startMinimized {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                (NSApp.delegate as? AppDelegate)?.hideApp()
-                            }
-                        }
+                    } else if SettingsStore.shared.startMinimized {
+                        // Hide immediately — window was created but never shown to user
+                        (NSApp.delegate as? AppDelegate)?.hideApp()
+                    } else {
+                        NSApp.setActivationPolicy(.regular)
+                        NSApp.activate(ignoringOtherApps: true)
                     }
                 }
                 .alert("Required Permissions", isPresented: $showPermissionAlert) {

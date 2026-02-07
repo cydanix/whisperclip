@@ -94,7 +94,7 @@ struct WhisperClip: App {
                     if !showPermissionAlert && SettingsStore.shared.hasCompletedOnboarding {
                         if SettingsStore.shared.startMinimized {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                NSApp.windows.first?.miniaturize(nil)
+                                (NSApp.delegate as? AppDelegate)?.hideApp()
                             }
                         }
                     }

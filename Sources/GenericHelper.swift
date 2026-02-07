@@ -378,7 +378,9 @@ enum GenericHelper {
 
     static func terminateApp() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            // First try normal termination
+            // Bypass applicationShouldTerminate so the app actually quits
+            // (e.g. during relaunch after onboarding)
+            (NSApp.delegate as? AppDelegate)?.shouldReallyQuit = true
             NSApplication.shared.terminate(nil)
 
             // If that doesn't work, force quit after a delay

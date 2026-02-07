@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.48] - 2026-02-06
+
+### Added
+- **Background operation**: The app now keeps running in the background when the window is closed or Cmd-Q is pressed. Transcription, hotkeys, and audio capture continue working with only the menu bar icon visible. Use the "Quit" option in the menu bar to fully exit.
+
+### Improved
+- **Start minimized**: Now hides the window entirely instead of minimizing to the Dock.
+
 ## [1.0.47] - 2026-02-06
 
 ### Added

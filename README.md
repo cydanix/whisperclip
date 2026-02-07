@@ -215,7 +215,7 @@ WhisperClip is developed by **Cydanix LLC**.
 
 - **Website**: [whisperclip.com](https://whisperclip.com)
 - **Support**: [support@cydanix.com](mailto:support@cydanix.com)
-- **Version**: 1.0.47
+- **Version**: 1.0.48
 
 ## 🙏 Acknowledgments
 

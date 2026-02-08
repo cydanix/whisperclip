@@ -293,13 +293,6 @@ struct MeetingNote: Identifiable, Codable, Hashable {
         status = .failed
     }
     
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-    
-    static func == (lhs: MeetingNote, rhs: MeetingNote) -> Bool {
-        lhs.id == rhs.id
-    }
 }
 
 /// Notification names for meeting events

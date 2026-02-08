@@ -269,18 +269,20 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
     private func processChunks(isFinal: Bool) {
         guard let callback = audioCallback else { return }
         
+        let minSamples = isFinal ? 1 : sampleRate * 2  // At least 2 seconds, unless final
+        
         // Process buffers asynchronously, using per-source timestamps
         Task {
             // Get microphone samples with their actual start time
             let micResult = await audioBuffers.getMicSamples()
-            if micResult.samples.count >= sampleRate * 2 {  // At least 2 seconds
+            if micResult.samples.count >= minSamples {
                 Logger.log("Processing microphone chunk: \(micResult.samples.count) samples at \(String(format: "%.1f", micResult.startTime))s", log: Logger.general)
                 callback(.microphone, micResult.samples, micResult.startTime)
             }
             
             // Get system audio samples with their actual start time
             let systemResult = await audioBuffers.getSystemSamples()
-            if systemResult.samples.count >= sampleRate * 2 {  // At least 2 seconds
+            if systemResult.samples.count >= minSamples {
                 Logger.log("Processing system audio chunk: \(systemResult.samples.count) samples at \(String(format: "%.1f", systemResult.startTime))s", log: Logger.general)
                 callback(.system, systemResult.samples, systemResult.startTime)
             }

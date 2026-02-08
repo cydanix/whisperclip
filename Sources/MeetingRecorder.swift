@@ -154,11 +154,11 @@ class MeetingRecorder: NSObject, ObservableObject {
         // Process final audio chunks directly (awaited, not fire-and-forget)
         // so the transcription pipeline is still alive
         if let finalAudio = finalAudio {
-            if finalAudio.mic.samples.count >= sampleRate * 2 {
-                await processAudioChunk(source: .microphone, samples: finalAudio.mic.samples, startTime: finalAudio.mic.startTime)
+            if !finalAudio.mic.samples.isEmpty {
+                await processAudioChunk(source: .microphone, samples: finalAudio.mic.samples, startTime: finalAudio.mic.startTime, isFinal: true)
             }
-            if finalAudio.system.samples.count >= sampleRate * 2 {
-                await processAudioChunk(source: .system, samples: finalAudio.system.samples, startTime: finalAudio.system.startTime)
+            if !finalAudio.system.samples.isEmpty {
+                await processAudioChunk(source: .system, samples: finalAudio.system.samples, startTime: finalAudio.system.startTime, isFinal: true)
             }
         }
         
@@ -218,13 +218,13 @@ class MeetingRecorder: NSObject, ObservableObject {
     
     // MARK: - Audio Processing
     
-    private func processAudioChunk(source: AudioSource, samples: [Float], startTime: TimeInterval) async {
+    private func processAudioChunk(source: AudioSource, samples: [Float], startTime: TimeInterval, isFinal: Bool = false) async {
         guard let asrManager = asrManager else {
             Logger.log("processAudioChunk: asrManager not available", log: Logger.general, type: .error)
             return
         }
         
-        guard samples.count >= sampleRate * 2 else {
+        guard isFinal || samples.count >= sampleRate * 2 else {
             Logger.log("processAudioChunk: not enough samples (\(samples.count))", log: Logger.general)
             return
         }

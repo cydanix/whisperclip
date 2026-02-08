@@ -106,399 +106,10 @@ struct SettingsView: View {
     
     var body: some View {
         TabView {
-            // General Settings Tab
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    sttEngineSection
-                    
-                    languageSection
-                    
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Auto Actions")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Toggle("Auto-press Enter after paste", isOn: Binding(
-                                get: { settings.autoEnter },
-                                set: { newValue in
-                                    settings.autoEnter = newValue
-                                }
-                            ))
-                            
-                            Text("Automatically press Enter after pasting transcribed text into the active application.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-                    
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Startup Behavior")
-                                .font(.headline)
-                                .foregroundColor(.white)
-
-                            Toggle("Start minimized", isOn: Binding(
-                                get: { settings.startMinimized },
-                                set: { newValue in
-                                    settings.startMinimized = newValue
-                                }
-                            ))
-
-                            Text("Start the application minimized to the Dock.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Recording Overlay")
-                                .font(.headline)
-                                .foregroundColor(.white)
-
-                            Toggle("Display Recording Overlay", isOn: Binding(
-                                get: { settings.displayRecordingOverlay },
-                                set: { newValue in
-                                    settings.displayRecordingOverlay = newValue
-                                }
-                            ))
-
-                            if settings.displayRecordingOverlay {
-                                Picker("Overlay Position", selection: Binding(
-                                    get: { settings.overlayPosition },
-                                    set: { newValue in
-                                        settings.overlayPosition = newValue
-                                    }
-                                )) {
-                                    Text("Top Left").tag("topLeft")
-                                    Text("Top Right").tag("topRight")
-                                    Text("Bottom Left").tag("bottomLeft")
-                                    Text("Bottom Right").tag("bottomRight")
-                                }
-                                .pickerStyle(.menu)
-                            }
-
-                            Text("Show a small overlay with audio visualization when recording starts.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Storage Management")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Text("Delete all downloaded AI models from your system. This will free up disk space but you'll need to re-download models when needed. Downloaded models are typically stored in your Application Support directory.")
-                                .font(.body)
-                                .foregroundColor(.gray)
-                            
-                            HStack {
-                                Button("Delete All Models (\(GenericHelper.formatSize(size: totalModelsSize)))") {
-                                    showingDeleteModelsConfirmation = true
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.red)
-                                .disabled(totalModelsSize == 0)
-                                
-                                Spacer()
-                            }
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-                    .onAppear {
-                        refreshModelsSize()
-                    }
-                    
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Reset to Defaults")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                            
-                            Text("This will reset all settings to their default values, including language, hotkeys, and prompts. This action cannot be undone.")
-                                .font(.body)
-                                .foregroundColor(.gray)
-                            
-                            HStack {
-                                Button("Reset All Settings") {
-                                    showingResetConfirmation = true
-                                }
-                                .buttonStyle(.bordered)
-                                .foregroundColor(.red)
-                                
-                                Spacer()
-                            }
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-                }
-                .padding()
-            }
-            .background(Color.black)
-            .tabItem {
-                Label("General", systemImage: "gear")
-            }
-            
-            // Hot Key Settings Tab
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Toggle("Enable Global Hotkey", isOn: Binding(
-                                get: { settings.hotkeyEnabled },
-                                set: { newValue in
-                                    settings.hotkeyEnabled = newValue
-                                    updateHotkey()
-                                }
-                            ))
-                            .font(.headline)
-                            
-                            if settings.hotkeyEnabled {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("Modifier Keys")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                    
-                                    Picker("Modifier", selection: $selectedModifierRawValue) {
-                                        ForEach(modifierOptions, id: \.0) { option in
-                                            Text(option.1).tag(option.0)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .onChange(of: selectedModifierRawValue) { _, newValue in
-                                        let modifierFlags = NSEvent.ModifierFlags(rawValue: newValue)
-                                        settings.hotkeyModifier = modifierFlags
-                                        updateHotkey()
-                                    }
-                                    
-                                    Text("Key")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                    
-                                    Picker("Key", selection: $selectedKeyCode) {
-                                        ForEach(keyOptions, id: \.0) { option in
-                                            Text(option.1).tag(option.0)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .onChange(of: selectedKeyCode) { _, newValue in
-                                        settings.hotkeyKey = newValue
-                                        hotkeyKeyString = keyCodeToString(newValue)
-                                        updateHotkey()
-                                    }
-                                    
-                                    Text("Current hotkey: \(getModifierString()) + \(hotkeyKeyString)")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            
-                            Text("Use the global hotkey to start/stop recording from anywhere on your system.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Recording Mode")
-                                .font(.headline)
-                                .foregroundColor(.white)
-
-                            Toggle("Hold to talk", isOn: Binding(
-                                get: { settings.holdToTalk },
-                                set: { newValue in
-                                    settings.holdToTalk = newValue
-                                }
-                            ))
-
-                            Text("When enabled, hold the hotkey to record and release to stop. When disabled, press once to start and again to stop.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Toggle("Enable Meeting Hotkey", isOn: Binding(
-                                get: { settings.meetingHotkeyEnabled },
-                                set: { newValue in
-                                    settings.meetingHotkeyEnabled = newValue
-                                    updateMeetingHotkey()
-                                }
-                            ))
-                            .font(.headline)
-                            
-                            if settings.meetingHotkeyEnabled {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text("Modifier Keys")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                    
-                                    Picker("Modifier", selection: $meetingModifierRawValue) {
-                                        ForEach(modifierOptions, id: \.0) { option in
-                                            Text(option.1).tag(option.0)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .onChange(of: meetingModifierRawValue) { _, newValue in
-                                        settings.meetingHotkeyModifier = NSEvent.ModifierFlags(rawValue: newValue)
-                                        updateMeetingHotkey()
-                                    }
-                                    
-                                    Text("Key")
-                                        .font(.subheadline)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                    
-                                    Picker("Key", selection: $meetingKeyCode) {
-                                        ForEach(meetingKeyOptions, id: \.0) { option in
-                                            Text(option.1).tag(option.0)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .onChange(of: meetingKeyCode) { _, newValue in
-                                        settings.meetingHotkeyKey = newValue
-                                        meetingKeyString = meetingKeyCodeToString(newValue)
-                                        updateMeetingHotkey()
-                                    }
-                                    
-                                    Text("Current hotkey: \(getMeetingModifierString()) + \(meetingKeyString)")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            
-                            Text("Use this hotkey to start/stop meeting recording from anywhere on your system.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-                }
-                .padding()
-            }
-            .background(Color.black)
-            .tabItem {
-                Label("Hot Key", systemImage: "keyboard")
-            }
-            
-            // Prompt Settings Tab
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 16) {
-                            // Header with Create button
-                            HStack {
-                                Text("Enhancement Prompts")
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                
-                                Spacer()
-                                
-                                Button("New Prompt") {
-                                    showingNewPromptDialog = true
-                                }
-                                .buttonStyle(.borderedProminent)
-                            }
-                            
-                            if settings.prompts.isEmpty {
-                                VStack(spacing: 12) {
-                                    Image(systemName: "text.bubble")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.gray)
-                                    
-                                    Text("No prompts created yet")
-                                        .font(.title2)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                    
-                                    Text("Create prompts to enhance or modify transcribed text with AI")
-                                        .font(.body)
-                                        .foregroundColor(.gray)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 32)
-                            } else {
-                                // Selected prompt indicator
-                                if let selectedId = settings.selectedPromptId,
-                                   let selectedPrompt = settings.prompts.first(where: { $0.id == selectedId }) {
-                                    HStack {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                        Text("Active: \(selectedPrompt.label)")
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.green.opacity(0.1))
-                                    .cornerRadius(8)
-                                }
-                                
-                                // Prompts list
-                                LazyVStack(spacing: 8) {
-                                    ForEach(settings.prompts) { prompt in
-                                        PromptRowView(
-                                            prompt: prompt,
-                                            isSelected: settings.selectedPromptId == prompt.id,
-                                            isEditing: editingPromptId == prompt.id,
-                                            editingLabel: $editingPromptLabel,
-                                            editingContent: $editingPromptContent,
-                                            onSelect: { settings.selectPrompt(id: prompt.id) },
-                                            onEdit: { startEditing(prompt) },
-                                            onSave: { savePromptEdits(prompt.id) },
-                                            onCancel: { cancelEditing() },
-                                            onDelete: { settings.deletePrompt(id: prompt.id) }
-                                        )
-                                    }
-                                }
-                            }
-                            
-                            Text("Create and manage prompts to enhance transcribed text with AI. Select one to make it active.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                    }
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(8)
-                }
-                .padding()
-            }
-            .background(Color.black)
-            .tabItem {
-                Label("Prompts", systemImage: "text.bubble")
-            }
+            generalTab
+            hotKeyTab
+            meetingsTab
+            promptsTab
         }
         .sheet(isPresented: $showingNewPromptDialog) {
             NewPromptDialog(
@@ -539,6 +150,577 @@ struct SettingsView: View {
         .onChange(of: settings.hotkeyKey) { _, newValue in
             selectedKeyCode = newValue
             hotkeyKeyString = keyCodeToString(newValue)
+        }
+    }
+    
+    // MARK: - General Tab
+    
+    private var generalTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                sttEngineSection
+                
+                languageSection
+                
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Auto Actions")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        Toggle("Auto-press Enter after paste", isOn: Binding(
+                            get: { settings.autoEnter },
+                            set: { newValue in
+                                settings.autoEnter = newValue
+                            }
+                        ))
+                        
+                        Text("Automatically press Enter after pasting transcribed text into the active application.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+                
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Startup Behavior")
+                            .font(.headline)
+                            .foregroundColor(.white)
+
+                        Toggle("Start minimized", isOn: Binding(
+                            get: { settings.startMinimized },
+                            set: { newValue in
+                                settings.startMinimized = newValue
+                            }
+                        ))
+
+                        Text("Start the application minimized to the Dock.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recording Overlay")
+                            .font(.headline)
+                            .foregroundColor(.white)
+
+                        Toggle("Display Recording Overlay", isOn: Binding(
+                            get: { settings.displayRecordingOverlay },
+                            set: { newValue in
+                                settings.displayRecordingOverlay = newValue
+                            }
+                        ))
+
+                        if settings.displayRecordingOverlay {
+                            Picker("Overlay Position", selection: Binding(
+                                get: { settings.overlayPosition },
+                                set: { newValue in
+                                    settings.overlayPosition = newValue
+                                }
+                            )) {
+                                Text("Top Left").tag("topLeft")
+                                Text("Top Right").tag("topRight")
+                                Text("Bottom Left").tag("bottomLeft")
+                                Text("Bottom Right").tag("bottomRight")
+                            }
+                            .pickerStyle(.menu)
+                        }
+
+                        Text("Show a small overlay with audio visualization when recording starts.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Storage Management")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        Text("Delete all downloaded AI models from your system. This will free up disk space but you'll need to re-download models when needed. Downloaded models are typically stored in your Application Support directory.")
+                            .font(.body)
+                            .foregroundColor(.gray)
+                        
+                        HStack {
+                            Button("Delete All Models (\(GenericHelper.formatSize(size: totalModelsSize)))") {
+                                showingDeleteModelsConfirmation = true
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundColor(.red)
+                            .disabled(totalModelsSize == 0)
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+                .onAppear {
+                    refreshModelsSize()
+                }
+                
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Reset to Defaults")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        Text("This will reset all settings to their default values, including language, hotkeys, and prompts. This action cannot be undone.")
+                            .font(.body)
+                            .foregroundColor(.gray)
+                        
+                        HStack {
+                            Button("Reset All Settings") {
+                                showingResetConfirmation = true
+                            }
+                            .buttonStyle(.bordered)
+                            .foregroundColor(.red)
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+            }
+            .padding()
+        }
+        .background(Color.black)
+        .tabItem {
+            Label("General", systemImage: "gear")
+        }
+    }
+    
+    // MARK: - Hot Key Tab
+    
+    private var hotKeyTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Toggle("Enable Global Hotkey", isOn: Binding(
+                            get: { settings.hotkeyEnabled },
+                            set: { newValue in
+                                settings.hotkeyEnabled = newValue
+                                updateHotkey()
+                            }
+                        ))
+                        .font(.headline)
+                        
+                        if settings.hotkeyEnabled {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Modifier Keys")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                
+                                Picker("Modifier", selection: $selectedModifierRawValue) {
+                                    ForEach(modifierOptions, id: \.0) { option in
+                                        Text(option.1).tag(option.0)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .onChange(of: selectedModifierRawValue) { _, newValue in
+                                    let modifierFlags = NSEvent.ModifierFlags(rawValue: newValue)
+                                    settings.hotkeyModifier = modifierFlags
+                                    updateHotkey()
+                                }
+                                
+                                Text("Key")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                
+                                Picker("Key", selection: $selectedKeyCode) {
+                                    ForEach(keyOptions, id: \.0) { option in
+                                        Text(option.1).tag(option.0)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .onChange(of: selectedKeyCode) { _, newValue in
+                                    settings.hotkeyKey = newValue
+                                    hotkeyKeyString = keyCodeToString(newValue)
+                                    updateHotkey()
+                                }
+                                
+                                Text("Current hotkey: \(getModifierString()) + \(hotkeyKeyString)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        
+                        Text("Use the global hotkey to start/stop recording from anywhere on your system.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Recording Mode")
+                            .font(.headline)
+                            .foregroundColor(.white)
+
+                        Toggle("Hold to talk", isOn: Binding(
+                            get: { settings.holdToTalk },
+                            set: { newValue in
+                                settings.holdToTalk = newValue
+                            }
+                        ))
+
+                        Text("When enabled, hold the hotkey to record and release to stop. When disabled, press once to start and again to stop.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Toggle("Enable Meeting Hotkey", isOn: Binding(
+                            get: { settings.meetingHotkeyEnabled },
+                            set: { newValue in
+                                settings.meetingHotkeyEnabled = newValue
+                                updateMeetingHotkey()
+                            }
+                        ))
+                        .font(.headline)
+                        
+                        if settings.meetingHotkeyEnabled {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Modifier Keys")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                
+                                Picker("Modifier", selection: $meetingModifierRawValue) {
+                                    ForEach(modifierOptions, id: \.0) { option in
+                                        Text(option.1).tag(option.0)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .onChange(of: meetingModifierRawValue) { _, newValue in
+                                    settings.meetingHotkeyModifier = NSEvent.ModifierFlags(rawValue: newValue)
+                                    updateMeetingHotkey()
+                                }
+                                
+                                Text("Key")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                
+                                Picker("Key", selection: $meetingKeyCode) {
+                                    ForEach(meetingKeyOptions, id: \.0) { option in
+                                        Text(option.1).tag(option.0)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .onChange(of: meetingKeyCode) { _, newValue in
+                                    settings.meetingHotkeyKey = newValue
+                                    meetingKeyString = meetingKeyCodeToString(newValue)
+                                    updateMeetingHotkey()
+                                }
+                                
+                                Text("Current hotkey: \(getMeetingModifierString()) + \(meetingKeyString)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        
+                        Text("Use this hotkey to start/stop meeting recording from anywhere on your system.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+            }
+            .padding()
+        }
+        .background(Color.black)
+        .tabItem {
+            Label("Hot Key", systemImage: "keyboard")
+        }
+    }
+    
+    // MARK: - Meetings Tab
+    
+    private var meetingsTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Auto-Detection master toggle
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Toggle("Enable Meeting Auto-Detection", isOn: Binding(
+                            get: { settings.meetingAutoDetect },
+                            set: { newValue in
+                                settings.meetingAutoDetect = newValue
+                            }
+                        ))
+                        .font(.headline)
+                        
+                        Text("Automatically detect when meeting apps (Zoom, Teams, Meet, etc.) are running and offer to record.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+                
+                // Auto-Start / Auto-Stop
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Automatic Recording")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        Toggle("Auto-start recording when meeting detected", isOn: Binding(
+                            get: { settings.meetingAutoStart },
+                            set: { newValue in
+                                settings.meetingAutoStart = newValue
+                            }
+                        ))
+                        .disabled(!settings.meetingAutoDetect)
+                        
+                        Text("Begin recording immediately when a meeting app is detected.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                        
+                        Divider()
+                        
+                        Toggle("Auto-stop recording when meeting ends", isOn: Binding(
+                            get: { settings.meetingAutoStop },
+                            set: { newValue in
+                                settings.meetingAutoStop = newValue
+                            }
+                        ))
+                        .disabled(!settings.meetingAutoDetect)
+                        
+                        autoStopDelaySection
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+                
+                // Auto-Summary
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle("Auto-generate summary after meeting", isOn: Binding(
+                            get: { settings.meetingAutoSummary },
+                            set: { newValue in
+                                settings.meetingAutoSummary = newValue
+                            }
+                        ))
+                        .font(.headline)
+                        
+                        Text("Automatically generate an AI summary, action items, and decisions when a meeting ends. Requires a downloaded AI model.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+                
+                // Monitored Apps
+                monitoredAppsSection
+            }
+            .padding()
+        }
+        .background(Color.black)
+        .tabItem {
+            Label("Meetings", systemImage: "text.bubble.fill")
+        }
+    }
+    
+    @ViewBuilder
+    private var autoStopDelaySection: some View {
+        if settings.meetingAutoStop && settings.meetingAutoDetect {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Stop delay: \(Int(settings.meetingAutoStopDelay)) seconds")
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                
+                Slider(
+                    value: Binding(
+                        get: { settings.meetingAutoStopDelay },
+                        set: { newValue in
+                            settings.meetingAutoStopDelay = newValue
+                        }
+                    ),
+                    in: 0...30,
+                    step: 1
+                )
+                
+                Text("Wait this long after the meeting app closes before stopping the recording. Helps avoid false stops if the app is briefly hidden.")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+        } else {
+            Text("Stop recording after the meeting app closes, with a configurable delay.")
+                .font(.caption)
+                .foregroundColor(.gray)
+        }
+    }
+    
+    private var monitoredAppsSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Monitored Apps")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                
+                Text("Choose which meeting applications to watch for. Only selected apps will trigger auto-detection.")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                let detectableApps: [MeetingSource] = [.zoom, .teams, .meet, .webex, .slack, .discord, .facetime]
+                
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(detectableApps, id: \.self) { source in
+                        Toggle(isOn: Binding(
+                            get: { settings.meetingDetectedApps.contains(source.rawValue) },
+                            set: { enabled in
+                                if enabled {
+                                    if !settings.meetingDetectedApps.contains(source.rawValue) {
+                                        settings.meetingDetectedApps.append(source.rawValue)
+                                    }
+                                } else {
+                                    settings.meetingDetectedApps.removeAll { $0 == source.rawValue }
+                                }
+                            }
+                        )) {
+                            HStack(spacing: 8) {
+                                Image(systemName: source.icon)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.teal)
+                                    .frame(width: 20)
+                                Text(source.rawValue)
+                                    .font(.system(size: 13))
+                            }
+                        }
+                        .disabled(!settings.meetingAutoDetect)
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color.gray.opacity(0.2))
+        .cornerRadius(8)
+    }
+    
+    // MARK: - Prompts Tab
+    
+    private var promptsTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Header with Create button
+                        HStack {
+                            Text("Enhancement Prompts")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Spacer()
+                            
+                            Button("New Prompt") {
+                                showingNewPromptDialog = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        
+                        if settings.prompts.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "text.bubble")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.gray)
+                                
+                                Text("No prompts created yet")
+                                    .font(.title2)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                
+                                Text("Create prompts to enhance or modify transcribed text with AI")
+                                    .font(.body)
+                                    .foregroundColor(.gray)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                        } else {
+                            // Selected prompt indicator
+                            if let selectedId = settings.selectedPromptId,
+                               let selectedPrompt = settings.prompts.first(where: { $0.id == selectedId }) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("Active: \(selectedPrompt.label)")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                            
+                            // Prompts list
+                            LazyVStack(spacing: 8) {
+                                ForEach(settings.prompts) { prompt in
+                                    PromptRowView(
+                                        prompt: prompt,
+                                        isSelected: settings.selectedPromptId == prompt.id,
+                                        isEditing: editingPromptId == prompt.id,
+                                        editingLabel: $editingPromptLabel,
+                                        editingContent: $editingPromptContent,
+                                        onSelect: { settings.selectPrompt(id: prompt.id) },
+                                        onEdit: { startEditing(prompt) },
+                                        onSave: { savePromptEdits(prompt.id) },
+                                        onCancel: { cancelEditing() },
+                                        onDelete: { settings.deletePrompt(id: prompt.id) }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Text("Create and manage prompts to enhance transcribed text with AI. Select one to make it active.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding()
+                }
+                .background(Color.gray.opacity(0.2))
+                .cornerRadius(8)
+            }
+            .padding()
+        }
+        .background(Color.black)
+        .tabItem {
+            Label("Prompts", systemImage: "text.bubble")
         }
     }
     

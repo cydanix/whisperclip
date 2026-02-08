@@ -87,6 +87,16 @@ class MeetingSession: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // Sync with SettingsStore so toggling in Settings tab starts/stops detection
+        SettingsStore.shared.$meetingAutoDetect
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] newValue in
+                guard let self = self, self.autoDetectEnabled != newValue else { return }
+                self.autoDetectEnabled = newValue
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Meeting Control
@@ -174,7 +184,18 @@ class MeetingSession: ObservableObject {
         
         Logger.log("Meeting session completed: \(meetingId) with \(segmentCount) segments", log: Logger.general)
         
-        // Generate summary in the background (non-blocking)
+        // Generate summary in the background (non-blocking) if enabled
+        guard SettingsStore.shared.meetingAutoSummary else {
+            Logger.log("Auto-summary disabled, skipping summary generation", log: Logger.general)
+            return
+        }
+        
+        // Skip summary if there's nothing to summarize
+        guard segmentCount > 0 else {
+            Logger.log("No segments recorded, skipping summary generation", log: Logger.general)
+            return
+        }
+        
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
             
@@ -188,6 +209,14 @@ class MeetingSession: ObservableObject {
             
             // Generate summary (this is the slow part)
             await self.generateMeetingSummary(meetingId: meetingId)
+            
+            // Ensure the meeting is marked completed regardless of outcome
+            await MainActor.run {
+                if var meeting = self.storage.getMeeting(meetingId), meeting.status == .processing {
+                    meeting.status = .completed
+                    self.storage.update(meeting)
+                }
+            }
             
             Logger.log("Meeting summary generation completed: \(meetingId)", log: Logger.general)
         }
@@ -271,6 +300,14 @@ class MeetingSession: ObservableObject {
     private func handleMeetingAppDetected(source: MeetingSource) {
         guard autoDetectEnabled, !isActive else { return }
         
+        let settings = SettingsStore.shared
+        
+        // Check if auto-start is enabled
+        guard settings.meetingAutoStart else {
+            Logger.log("Auto-detected meeting app: \(source.rawValue), but auto-start is disabled", log: Logger.general)
+            return
+        }
+        
         Logger.log("Auto-detected meeting app: \(source.rawValue), auto-starting recording", log: Logger.general)
         
         // Cancel any pending auto-stop from a previous detection cycle
@@ -286,11 +323,20 @@ class MeetingSession: ObservableObject {
     private func handleMeetingAppClosed() {
         guard autoDetectEnabled, isActive else { return }
         
-        Logger.log("Meeting app closed, auto-stopping after delay", log: Logger.general)
+        let settings = SettingsStore.shared
         
-        // Stop after a short delay to avoid false positives (e.g. app briefly hidden)
+        // Check if auto-stop is enabled
+        guard settings.meetingAutoStop else {
+            Logger.log("Meeting app closed, but auto-stop is disabled", log: Logger.general)
+            return
+        }
+        
+        let delay = settings.meetingAutoStopDelay
+        Logger.log("Meeting app closed, auto-stopping after \(Int(delay))s delay", log: Logger.general)
+        
+        // Stop after a configurable delay to avoid false positives (e.g. app briefly hidden)
         autoStopTimer?.invalidate()
-        autoStopTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+        autoStopTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self, self.isActive else { return }
                 Logger.log("Auto-stop delay elapsed, stopping meeting", log: Logger.general)

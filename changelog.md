@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.50] - 2026-02-08
+
+### Added
+- **Meetings settings tab**: New dedicated Settings tab for meeting-related preferences.
+  - **Auto-start toggle**: Choose whether recording begins automatically when a meeting app is detected.
+  - **Auto-stop toggle**: Choose whether recording stops automatically when the meeting app closes.
+  - **Auto-stop delay slider**: Configurable 0–30 second grace period before auto-stop triggers, to avoid false stops.
+  - **Auto-summary toggle**: Enable or disable automatic AI summary generation after a meeting ends.
+  - **Monitored apps picker**: Select which meeting apps (Zoom, Teams, Meet, Webex, Slack, Discord, FaceTime) trigger auto-detection.
+
+### Fixed
+- **Final audio chunk lost on stop**: Fixed a race condition where `stopCapture()` spawned a fire-and-forget Task to drain audio buffers, then immediately cleared the buffers and nil'd the callback. The final chunk now drains synchronously and is processed before the transcription pipeline is torn down.
+- **Meeting detection accuracy**: Improved `isAppInMeeting` with three-strategy detection — window title keyword matching, non-meeting window filtering, and a frontmost-app fallback when Screen Recording permission doesn't expose window names. Updated Zoom, Teams, and Slack window-title keywords for better hit rates.
+- **Meeting status stuck on "processing"**: Meetings are now always marked completed after summary generation, even if the LLM encounters an error.
+- **Summary generated for empty meetings**: Skipped summary generation when no transcript segments were recorded.
+
+### Improved
+- **Meeting auto-detect sync**: Toggling auto-detect in Settings now immediately starts or stops the detection timer without requiring an app restart.
+- **Detection logging**: Diagnostic log output from the 2-second detection timer is now throttled to once every 30 seconds to reduce log noise.
+- **Browser meeting detection**: `checkBrowserForMeetings` now returns all detected browser-based meetings instead of only the first, and respects the monitored-apps filter.
+- **Settings view refactor**: Split the monolithic `SettingsView` body into per-tab computed properties (`generalTab`, `hotKeyTab`, `meetingsTab`, `promptsTab`) for maintainability.
+
 ## [1.0.49] - 2026-02-08
 
 ### Added

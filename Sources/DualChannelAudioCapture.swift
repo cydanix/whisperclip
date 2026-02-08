@@ -110,9 +110,14 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
         Logger.log("Dual channel audio capture started", log: Logger.general)
     }
     
-    /// Stop all audio capture
-    func stopCapture() async {
-        guard isCapturing else { return }
+    /// Stop all audio capture and return any remaining buffered audio.
+    /// Callers should process the returned samples before tearing down the
+    /// transcription pipeline.
+    @discardableResult
+    func stopCapture() async -> (mic: (samples: [Float], startTime: TimeInterval), system: (samples: [Float], startTime: TimeInterval)) {
+        guard isCapturing else {
+            return (mic: ([], 0), system: ([], 0))
+        }
         
         // Stop timers
         chunkTimer?.invalidate()
@@ -120,27 +125,26 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
         levelTimer?.invalidate()
         levelTimer = nil
         
-        // Process any remaining audio
-        processChunks(isFinal: true)
-        
-        // Stop microphone
+        // Stop audio inputs first so no new samples arrive
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine = nil
         
-        // Stop system audio
         if let stream = scStream {
             try? await stream.stopCapture()
             scStream = nil
         }
         
-        // Clear buffers
-        await audioBuffers.clearAll()
+        // Drain remaining audio from buffers (awaited, not fire-and-forget)
+        let micResult = await audioBuffers.getMicSamples()
+        let systemResult = await audioBuffers.getSystemSamples()
         
         isCapturing = false
         audioCallback = nil
         
         Logger.log("Dual channel audio capture stopped", log: Logger.general)
+        
+        return (mic: micResult, system: systemResult)
     }
     
     // MARK: - Microphone Capture
@@ -257,26 +261,28 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
     private func startChunkProcessing() {
         chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.processChunks(isFinal: false)
+                self?.processChunks()
             }
         }
     }
     
-    private func processChunks(isFinal: Bool) {
+    private func processChunks() {
         guard let callback = audioCallback else { return }
+        
+        let minSamples = sampleRate * 2  // At least 2 seconds
         
         // Process buffers asynchronously, using per-source timestamps
         Task {
             // Get microphone samples with their actual start time
             let micResult = await audioBuffers.getMicSamples()
-            if micResult.samples.count >= sampleRate * 2 {  // At least 2 seconds
+            if micResult.samples.count >= minSamples {
                 Logger.log("Processing microphone chunk: \(micResult.samples.count) samples at \(String(format: "%.1f", micResult.startTime))s", log: Logger.general)
                 callback(.microphone, micResult.samples, micResult.startTime)
             }
             
             // Get system audio samples with their actual start time
             let systemResult = await audioBuffers.getSystemSamples()
-            if systemResult.samples.count >= sampleRate * 2 {  // At least 2 seconds
+            if systemResult.samples.count >= minSamples {
                 Logger.log("Processing system audio chunk: \(systemResult.samples.count) samples at \(String(format: "%.1f", systemResult.startTime))s", log: Logger.general)
                 callback(.system, systemResult.samples, systemResult.startTime)
             }

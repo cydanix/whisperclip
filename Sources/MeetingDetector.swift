@@ -30,19 +30,8 @@ class MeetingDetector: ObservableObject {
         "com.apple.FaceTime": .facetime,
     ]
     
-    // Window title patterns that indicate an active meeting
-    private let meetingWindowPatterns: [String: MeetingSource] = [
-        "Zoom Meeting": .zoom,
-        "Zoom Webinar": .zoom,
-        "meeting with": .teams,
-        "Microsoft Teams": .teams,
-        "Google Meet": .meet,
-        "meet.google.com": .meet,
-        "Webex Meeting": .webex,
-        "Huddle": .slack,
-        "Voice Connected": .discord,
-        "FaceTime": .facetime,
-    ]
+    /// Throttle diagnostic logging to avoid spamming every 2 seconds
+    private var lastDiagnosticLog: Date = .distantPast
     
     private init() {}
     
@@ -76,15 +65,24 @@ class MeetingDetector: ObservableObject {
     // MARK: - Detection Logic
     
     private func checkForMeetingApps() {
-        // Check running applications
+        let enabledApps = Set(SettingsStore.shared.meetingDetectedApps)
         let runningApps = NSWorkspace.shared.runningApplications
+        let shouldLogDiag = Date().timeIntervalSince(lastDiagnosticLog) > 30
         
         for app in runningApps {
             guard let bundleId = app.bundleIdentifier else { continue }
             
-            // Check if it's a known meeting app with a meeting window open
             if let source = meetingAppBundleIds[bundleId] {
-                if isAppInMeeting(app: app, source: source) {
+                guard enabledApps.contains(source.rawValue) else { continue }
+                
+                let result = isAppInMeeting(app: app, source: source)
+                
+                if shouldLogDiag {
+                    lastDiagnosticLog = Date()
+                    Logger.log("Detection check: \(source.rawValue) running, windows=\(result.windowTitles ?? []), matched=\(result.isInMeeting), active=\(app.isActive)", log: Logger.general)
+                }
+                
+                if result.isInMeeting {
                     handleMeetingDetected(source: source, appName: app.localizedName ?? source.rawValue)
                     return
                 }
@@ -92,7 +90,8 @@ class MeetingDetector: ObservableObject {
         }
         
         // Check for web-based meetings (Meet in browser)
-        if let browserMeeting = checkBrowserForMeetings() {
+        for browserMeeting in checkBrowserForMeetings() {
+            guard enabledApps.contains(browserMeeting.source.rawValue) else { continue }
             handleMeetingDetected(source: browserMeeting.source, appName: browserMeeting.name)
             return
         }
@@ -103,47 +102,78 @@ class MeetingDetector: ObservableObject {
         }
     }
     
-    private func isAppInMeeting(app: NSRunningApplication, source: MeetingSource) -> Bool {
-        // For some apps, we can check window titles to confirm a meeting is active
-        // This requires accessibility permissions
+    private func isAppInMeeting(app: NSRunningApplication, source: MeetingSource) -> (isInMeeting: Bool, windowTitles: [String]?) {
+        let windowInfo = getWindowsForApp(app)
+        let titles = windowInfo.titles
+        let totalWindowCount = windowInfo.totalCount
         
-        guard let windows = getWindowsForApp(app) else { return false }
-        
-        let keywords = source.windowTitleKeywords
-        for window in windows {
-            for keyword in keywords {
-                if window.localizedCaseInsensitiveContains(keyword) {
-                    return true
+        // Strategy 1: Match window titles against meeting keywords
+        if let titles = titles {
+            let keywords = source.windowTitleKeywords
+            for title in titles {
+                for keyword in keywords {
+                    if title.localizedCaseInsensitiveContains(keyword) {
+                        return (true, titles)
+                    }
+                }
+            }
+            
+            // Strategy 2: For apps that have known non-meeting window titles,
+            // if there are windows beyond the non-meeting ones, likely in a meeting.
+            // e.g. Zoom shows "Zoom Workplace" when idle; extra windows = meeting active
+            let nonMeetingKeywords = source.nonMeetingWindowKeywords
+            if !nonMeetingKeywords.isEmpty {
+                let meetingWindows = titles.filter { title in
+                    !nonMeetingKeywords.contains(where: { title.localizedCaseInsensitiveContains($0) })
+                }
+                if !meetingWindows.isEmpty {
+                    return (true, titles)
                 }
             }
         }
         
-        return false
+        // Strategy 3: Fallback when we cannot read window titles
+        // (no Screen Recording permission — CGWindowListCopyWindowInfo returns empty names).
+        // If the app is the frontmost (active) application AND has multiple windows,
+        // treat it as likely being in a meeting.
+        if titles == nil && app.isActive && totalWindowCount >= 2 {
+            return (true, nil)
+        }
+        
+        return (false, titles)
     }
     
-    private func getWindowsForApp(_ app: NSRunningApplication) -> [String]? {
-        // Get window list using CGWindowListCopyWindowInfo (include all windows, not just on-screen)
+    /// Returns window titles (if accessible) and total window count for the app
+    private func getWindowsForApp(_ app: NSRunningApplication) -> (titles: [String]?, totalCount: Int) {
         guard let windowList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else {
-            return nil
+            return (nil, 0)
         }
         
         var titles: [String] = []
+        var totalCount = 0
         let pid = app.processIdentifier
         
         for window in windowList {
             guard let windowPid = window[kCGWindowOwnerPID as String] as? Int32,
-                  windowPid == pid,
-                  let title = window[kCGWindowName as String] as? String,
-                  !title.isEmpty else {
+                  windowPid == pid else {
                 continue
             }
-            titles.append(title)
+            
+            // Count all windows regardless of whether we can read their title
+            let layer = window[kCGWindowLayer as String] as? Int ?? 0
+            if layer == 0 {  // Normal window layer only
+                totalCount += 1
+            }
+            
+            if let title = window[kCGWindowName as String] as? String, !title.isEmpty {
+                titles.append(title)
+            }
         }
         
-        return titles.isEmpty ? nil : titles
+        return (titles.isEmpty ? nil : titles, totalCount)
     }
     
-    private func checkBrowserForMeetings() -> (source: MeetingSource, name: String)? {
+    private func checkBrowserForMeetings() -> [(source: MeetingSource, name: String)] {
         // Check popular browsers for meeting URLs in window titles
         let browserBundleIds = [
             "com.google.Chrome",
@@ -153,38 +183,46 @@ class MeetingDetector: ObservableObject {
             "com.brave.Browser"
         ]
         
+        var results: [(source: MeetingSource, name: String)] = []
+        var foundSources: Set<MeetingSource> = []
         let runningApps = NSWorkspace.shared.runningApplications
         
         for app in runningApps {
             guard let bundleId = app.bundleIdentifier,
                   browserBundleIds.contains(bundleId),
-                  let windows = getWindowsForApp(app) else {
+                  let windows = getWindowsForApp(app).titles else {
                 continue
             }
             
             for window in windows {
                 // Check for Google Meet
-                if window.localizedCaseInsensitiveContains("meet.google.com") ||
-                   window.localizedCaseInsensitiveContains("Google Meet") {
-                    return (.meet, "Google Meet")
+                if !foundSources.contains(.meet) &&
+                   (window.localizedCaseInsensitiveContains("meet.google.com") ||
+                    window.localizedCaseInsensitiveContains("Google Meet")) {
+                    results.append((.meet, "Google Meet"))
+                    foundSources.insert(.meet)
                 }
                 
                 // Check for Zoom in browser
-                if window.localizedCaseInsensitiveContains("zoom.us") &&
+                if !foundSources.contains(.zoom) &&
+                   window.localizedCaseInsensitiveContains("zoom.us") &&
                    (window.localizedCaseInsensitiveContains("meeting") ||
                     window.localizedCaseInsensitiveContains("webinar")) {
-                    return (.zoom, "Zoom (Browser)")
+                    results.append((.zoom, "Zoom (Browser)"))
+                    foundSources.insert(.zoom)
                 }
                 
                 // Check for Teams in browser
-                if window.localizedCaseInsensitiveContains("teams.microsoft.com") ||
-                   window.localizedCaseInsensitiveContains("teams.live.com") {
-                    return (.teams, "Teams (Browser)")
+                if !foundSources.contains(.teams) &&
+                   (window.localizedCaseInsensitiveContains("teams.microsoft.com") ||
+                    window.localizedCaseInsensitiveContains("teams.live.com")) {
+                    results.append((.teams, "Teams (Browser)"))
+                    foundSources.insert(.teams)
                 }
             }
         }
         
-        return nil
+        return results
     }
     
     private func handleMeetingDetected(source: MeetingSource, appName: String) {

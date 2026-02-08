@@ -192,13 +192,28 @@ enum MeetingSource: String, Codable, CaseIterable {
     
     var windowTitleKeywords: [String] {
         switch self {
-        case .zoom: return ["Zoom Meeting", "Zoom Webinar"]
-        case .teams: return ["Meeting", "Call"]
+        case .zoom: return ["Zoom Meeting", "Zoom Webinar", "zoom share", "meeting controls"]
+        case .teams: return ["Meeting with", "Call with", "Microsoft Teams call", "Microsoft Teams meeting"]
         case .meet: return ["Google Meet", "meet.google.com"]
         case .webex: return ["Webex Meeting", "Webex"]
-        case .slack: return ["Huddle", "Call"]
+        case .slack: return ["Huddle", "Slack call"]
         case .discord: return ["Voice Channel", "Voice Connected"]
         case .facetime: return ["FaceTime"]
+        case .manual: return []
+        case .unknown: return []
+        }
+    }
+    
+    /// Window title patterns that indicate the app is open but NOT in a meeting
+    var nonMeetingWindowKeywords: [String] {
+        switch self {
+        case .zoom: return []
+        case .teams: return []
+        case .meet: return []
+        case .webex: return []
+        case .slack: return []
+        case .discord: return []
+        case .facetime: return []
         case .manual: return []
         case .unknown: return []
         }
@@ -293,13 +308,6 @@ struct MeetingNote: Identifiable, Codable, Hashable {
         status = .failed
     }
     
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-    
-    static func == (lhs: MeetingNote, rhs: MeetingNote) -> Bool {
-        lhs.id == rhs.id
-    }
 }
 
 /// Notification names for meeting events

@@ -141,14 +141,30 @@ class MeetingRecorder: NSObject, ObservableObject {
         durationTimer?.invalidate()
         durationTimer = nil
         
-        // Stop dual capture
+        // Stop dual capture and retrieve remaining buffered audio
+        var finalAudio: (mic: (samples: [Float], startTime: TimeInterval),
+                         system: (samples: [Float], startTime: TimeInterval))?
         if let capture = dualCapture {
-            await capture.stopCapture()
+            finalAudio = await capture.stopCapture()
+        }
+        
+        // Wait for any previously queued transcription work to finish
+        await transcriptionQueue.drain()
+        
+        // Process final audio chunks directly (awaited, not fire-and-forget)
+        // so the transcription pipeline is still alive
+        if let finalAudio = finalAudio {
+            if !finalAudio.mic.samples.isEmpty {
+                await processAudioChunk(source: .microphone, samples: finalAudio.mic.samples, startTime: finalAudio.mic.startTime, isFinal: true)
+            }
+            if !finalAudio.system.samples.isEmpty {
+                await processAudioChunk(source: .system, samples: finalAudio.system.samples, startTime: finalAudio.system.startTime, isFinal: true)
+            }
         }
         
         isRecording = false
         
-        // Cleanup
+        // Cleanup (safe now — all transcription work is complete)
         cleanup()
         
         Logger.log("Meeting recording stopped", log: Logger.general)
@@ -202,13 +218,13 @@ class MeetingRecorder: NSObject, ObservableObject {
     
     // MARK: - Audio Processing
     
-    private func processAudioChunk(source: AudioSource, samples: [Float], startTime: TimeInterval) async {
+    private func processAudioChunk(source: AudioSource, samples: [Float], startTime: TimeInterval, isFinal: Bool = false) async {
         guard let asrManager = asrManager else {
             Logger.log("processAudioChunk: asrManager not available", log: Logger.general, type: .error)
             return
         }
         
-        guard samples.count >= sampleRate * 2 else {
+        guard isFinal || samples.count >= sampleRate * 2 else {
             Logger.log("processAudioChunk: not enough samples (\(samples.count))", log: Logger.general)
             return
         }
@@ -393,6 +409,13 @@ private actor TranscriptionQueue {
         
         // Continue processing queue
         await processNext()
+    }
+    
+    /// Wait until all in-flight and pending transcription work completes
+    func drain() async {
+        while isProcessing || !pendingRequests.isEmpty {
+            try? await Task.sleep(nanoseconds: 10_000_000)  // 10ms
+        }
     }
 }
 

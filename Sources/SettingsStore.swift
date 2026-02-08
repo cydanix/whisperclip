@@ -26,6 +26,11 @@ struct DefaultSettings {
     static let hotkeyModifier = NSEvent.ModifierFlags.option
     static let hotkeyKey: UInt16 = 49 // Space key
     static let meetingAutoDetect = false
+    static let meetingAutoStart = true
+    static let meetingAutoStop = true
+    static let meetingAutoStopDelay: Double = 5.0
+    static let meetingAutoSummary = true
+    static let meetingDetectedApps: [String] = MeetingSource.allCases.filter { $0 != .manual && $0 != .unknown }.map { $0.rawValue }
     static let meetingHotkeyEnabled = false
     static let meetingHotkeyModifier = NSEvent.ModifierFlags.control
     static let meetingHotkeyKey: UInt16 = 46 // M key
@@ -55,6 +60,11 @@ class SettingsStore: ObservableObject {
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
         case meetingAutoDetect = "meetingAutoDetect"
+        case meetingAutoStart = "meetingAutoStart"
+        case meetingAutoStop = "meetingAutoStop"
+        case meetingAutoStopDelay = "meetingAutoStopDelay"
+        case meetingAutoSummary = "meetingAutoSummary"
+        case meetingDetectedApps = "meetingDetectedApps"
         case meetingHotkeyEnabled = "meetingHotkeyEnabled"
         case meetingHotkeyModifier = "meetingHotkeyModifier"
         case meetingHotkeyKey = "meetingHotkeyKey"
@@ -130,6 +140,38 @@ class SettingsStore: ObservableObject {
     @Published var meetingAutoDetect: Bool = DefaultSettings.meetingAutoDetect {
         didSet {
             defaults.set(meetingAutoDetect, forKey: Keys.meetingAutoDetect.rawValue)
+        }
+    }
+    
+    @Published var meetingAutoStart: Bool = DefaultSettings.meetingAutoStart {
+        didSet {
+            defaults.set(meetingAutoStart, forKey: Keys.meetingAutoStart.rawValue)
+        }
+    }
+    
+    @Published var meetingAutoStop: Bool = DefaultSettings.meetingAutoStop {
+        didSet {
+            defaults.set(meetingAutoStop, forKey: Keys.meetingAutoStop.rawValue)
+        }
+    }
+    
+    @Published var meetingAutoStopDelay: Double = DefaultSettings.meetingAutoStopDelay {
+        didSet {
+            defaults.set(meetingAutoStopDelay, forKey: Keys.meetingAutoStopDelay.rawValue)
+        }
+    }
+    
+    @Published var meetingAutoSummary: Bool = DefaultSettings.meetingAutoSummary {
+        didSet {
+            defaults.set(meetingAutoSummary, forKey: Keys.meetingAutoSummary.rawValue)
+        }
+    }
+    
+    @Published var meetingDetectedApps: [String] = DefaultSettings.meetingDetectedApps {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(meetingDetectedApps) {
+                defaults.set(encoded, forKey: Keys.meetingDetectedApps.rawValue)
+            }
         }
     }
     
@@ -213,6 +255,16 @@ class SettingsStore: ObservableObject {
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
         self.meetingAutoDetect = defaults.object(forKey: Keys.meetingAutoDetect.rawValue) == nil ? DefaultSettings.meetingAutoDetect : defaults.bool(forKey: Keys.meetingAutoDetect.rawValue)
+        self.meetingAutoStart = defaults.object(forKey: Keys.meetingAutoStart.rawValue) == nil ? DefaultSettings.meetingAutoStart : defaults.bool(forKey: Keys.meetingAutoStart.rawValue)
+        self.meetingAutoStop = defaults.object(forKey: Keys.meetingAutoStop.rawValue) == nil ? DefaultSettings.meetingAutoStop : defaults.bool(forKey: Keys.meetingAutoStop.rawValue)
+        self.meetingAutoStopDelay = defaults.object(forKey: Keys.meetingAutoStopDelay.rawValue) == nil ? DefaultSettings.meetingAutoStopDelay : defaults.double(forKey: Keys.meetingAutoStopDelay.rawValue)
+        self.meetingAutoSummary = defaults.object(forKey: Keys.meetingAutoSummary.rawValue) == nil ? DefaultSettings.meetingAutoSummary : defaults.bool(forKey: Keys.meetingAutoSummary.rawValue)
+        if let appsData = defaults.data(forKey: Keys.meetingDetectedApps.rawValue),
+           let decodedApps = try? JSONDecoder().decode([String].self, from: appsData) {
+            self.meetingDetectedApps = decodedApps
+        } else {
+            self.meetingDetectedApps = DefaultSettings.meetingDetectedApps
+        }
         self.meetingHotkeyEnabled = defaults.object(forKey: Keys.meetingHotkeyEnabled.rawValue) == nil ? DefaultSettings.meetingHotkeyEnabled : defaults.bool(forKey: Keys.meetingHotkeyEnabled.rawValue)
         self.meetingHotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.meetingHotkeyModifier.rawValue) as? UInt ?? DefaultSettings.meetingHotkeyModifier.rawValue)
         self.meetingHotkeyKey = defaults.object(forKey: Keys.meetingHotkeyKey.rawValue) == nil ? DefaultSettings.meetingHotkeyKey : UInt16(defaults.integer(forKey: Keys.meetingHotkeyKey.rawValue))
@@ -292,6 +344,11 @@ class SettingsStore: ObservableObject {
         hotkeyModifier = DefaultSettings.hotkeyModifier
         hotkeyKey = DefaultSettings.hotkeyKey
         meetingAutoDetect = DefaultSettings.meetingAutoDetect
+        meetingAutoStart = DefaultSettings.meetingAutoStart
+        meetingAutoStop = DefaultSettings.meetingAutoStop
+        meetingAutoStopDelay = DefaultSettings.meetingAutoStopDelay
+        meetingAutoSummary = DefaultSettings.meetingAutoSummary
+        meetingDetectedApps = DefaultSettings.meetingDetectedApps
         meetingHotkeyEnabled = DefaultSettings.meetingHotkeyEnabled
         meetingHotkeyModifier = DefaultSettings.meetingHotkeyModifier
         meetingHotkeyKey = DefaultSettings.meetingHotkeyKey

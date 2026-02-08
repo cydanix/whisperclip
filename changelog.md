@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.49] - 2026-02-08
+
+### Added
+- **AI Meeting Notes**: Granola-style intelligent meeting capture with live transcription, structured summaries, and action items.
+  - **Live transcription**: Real-time speech-to-text during meetings with animated waveform visualization.
+  - **Dual-channel audio**: Separate microphone ("Me") and system audio ("Others") streams with accurate per-source timestamps and chronological merging.
+  - **Speaker diarization**: Uses FluidAudio's DiarizerManager for proper speaker separation with WeSpeaker embeddings and clustering. Automatically identifies "Me" vs "Others" in the conversation.
+  - **AI summaries**: Auto-generated brief and detailed meeting summaries using embedded LLM.
+  - **Key topics extraction**: Automatically identifies and summarizes main discussion points.
+  - **Action items**: AI extracts action items with assignee detection from meeting content.
+  - **Decision tracking**: Captures key decisions made during the meeting.
+  - **Follow-ups**: Lists items that need follow-up after the meeting.
+  - **Post-meeting Q&A**: Ask questions about any meeting and get AI-powered answers from the transcript.
+  - **Meeting app auto-detection**: Auto-detects Zoom, Microsoft Teams, Google Meet, Webex, Slack, Discord, and FaceTime. Automatically starts/stops recording with a 5-second grace period to avoid false positives.
+  - **Meeting hotkey**: Configurable global hotkey (default: Control+M) to start/stop meeting recording from anywhere.
+  - **Export options**: Copy meetings as Markdown or export transcripts and summaries.
+- **Meeting Notes sidebar panel**: Beautiful UI with live recording view and meeting list with search.
+- **Meeting detail view**: Full meeting notes with tabs for Summary, Transcript, Actions, and Q&A.
+- **Meeting waveform visualization**: Animated audio level display during recording.
+- **Speaker ID model in onboarding**: Optional download step for speaker diarization model (required for Meeting Notes speaker identification).
+
+### Improved
+- **Live transcription reliability**: Fixed audio buffer errors during meeting recording by copying recording data before processing.
+- **Transcript timestamp accuracy**: Mic and system audio chunks now carry their actual capture timestamps instead of a shared timer, ensuring correct chronological ordering.
+- **LLM context limits**: Increased transcript truncation limits for meeting AI analysis (4K → 24K characters) to leverage the full LLM context window.
+- **Q&A display**: Meeting detail view now reads directly from storage as a computed property, fixing an issue where Q&A answers were generated but not displayed due to a SwiftUI state management race condition.
+- **Meeting auto-detection**: Fixed detection logic to check window titles instead of triggering on any focused meeting app. Detection now includes minimized/background windows and the auto-detect preference is persisted across app launches.
+
 ## [1.0.48] - 2026-02-06
 
 ### Added

@@ -25,6 +25,10 @@ struct DefaultSettings {
     static let hotkeyEnabled = true
     static let hotkeyModifier = NSEvent.ModifierFlags.option
     static let hotkeyKey: UInt16 = 49 // Space key
+    static let meetingAutoDetect = false
+    static let meetingHotkeyEnabled = false
+    static let meetingHotkeyModifier = NSEvent.ModifierFlags.control
+    static let meetingHotkeyKey: UInt16 = 46 // M key
     static let holdToTalk = false
     static let recordingCount = 0
     static let donationDialogShown = false
@@ -50,6 +54,10 @@ class SettingsStore: ObservableObject {
         case hotkeyEnabled = "hotkeyEnabled"
         case hotkeyModifier = "hotkeyModifier"
         case hotkeyKey = "hotkeyKey"
+        case meetingAutoDetect = "meetingAutoDetect"
+        case meetingHotkeyEnabled = "meetingHotkeyEnabled"
+        case meetingHotkeyModifier = "meetingHotkeyModifier"
+        case meetingHotkeyKey = "meetingHotkeyKey"
         case holdToTalk = "holdToTalk"
         case recordingCount = "recordingCount"
         case donationDialogShown = "donationDialogShown"
@@ -119,6 +127,30 @@ class SettingsStore: ObservableObject {
         }
     }
 
+    @Published var meetingAutoDetect: Bool = DefaultSettings.meetingAutoDetect {
+        didSet {
+            defaults.set(meetingAutoDetect, forKey: Keys.meetingAutoDetect.rawValue)
+        }
+    }
+    
+    @Published var meetingHotkeyEnabled: Bool = DefaultSettings.meetingHotkeyEnabled {
+        didSet {
+            defaults.set(meetingHotkeyEnabled, forKey: Keys.meetingHotkeyEnabled.rawValue)
+        }
+    }
+    
+    @Published var meetingHotkeyModifier: NSEvent.ModifierFlags = DefaultSettings.meetingHotkeyModifier {
+        didSet {
+            defaults.set(meetingHotkeyModifier.rawValue, forKey: Keys.meetingHotkeyModifier.rawValue)
+        }
+    }
+    
+    @Published var meetingHotkeyKey: UInt16 = DefaultSettings.meetingHotkeyKey {
+        didSet {
+            defaults.set(meetingHotkeyKey, forKey: Keys.meetingHotkeyKey.rawValue)
+        }
+    }
+
     @Published var holdToTalk: Bool = DefaultSettings.holdToTalk {
         didSet {
             defaults.set(holdToTalk, forKey: Keys.holdToTalk.rawValue)
@@ -180,6 +212,10 @@ class SettingsStore: ObservableObject {
         self.hotkeyEnabled = defaults.object(forKey: Keys.hotkeyEnabled.rawValue) == nil ? DefaultSettings.hotkeyEnabled : defaults.bool(forKey: Keys.hotkeyEnabled.rawValue)
         self.hotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.hotkeyModifier.rawValue) as? UInt ?? DefaultSettings.hotkeyModifier.rawValue)
         self.hotkeyKey = defaults.object(forKey: Keys.hotkeyKey.rawValue) == nil ? DefaultSettings.hotkeyKey : UInt16(defaults.integer(forKey: Keys.hotkeyKey.rawValue))
+        self.meetingAutoDetect = defaults.object(forKey: Keys.meetingAutoDetect.rawValue) == nil ? DefaultSettings.meetingAutoDetect : defaults.bool(forKey: Keys.meetingAutoDetect.rawValue)
+        self.meetingHotkeyEnabled = defaults.object(forKey: Keys.meetingHotkeyEnabled.rawValue) == nil ? DefaultSettings.meetingHotkeyEnabled : defaults.bool(forKey: Keys.meetingHotkeyEnabled.rawValue)
+        self.meetingHotkeyModifier = NSEvent.ModifierFlags(rawValue: defaults.object(forKey: Keys.meetingHotkeyModifier.rawValue) as? UInt ?? DefaultSettings.meetingHotkeyModifier.rawValue)
+        self.meetingHotkeyKey = defaults.object(forKey: Keys.meetingHotkeyKey.rawValue) == nil ? DefaultSettings.meetingHotkeyKey : UInt16(defaults.integer(forKey: Keys.meetingHotkeyKey.rawValue))
         self.holdToTalk = defaults.object(forKey: Keys.holdToTalk.rawValue) == nil ? DefaultSettings.holdToTalk : defaults.bool(forKey: Keys.holdToTalk.rawValue)
         self.recordingCount = defaults.object(forKey: Keys.recordingCount.rawValue) == nil ? DefaultSettings.recordingCount : defaults.integer(forKey: Keys.recordingCount.rawValue)
         self.donationDialogShown = defaults.object(forKey: Keys.donationDialogShown.rawValue) == nil ? DefaultSettings.donationDialogShown : defaults.bool(forKey: Keys.donationDialogShown.rawValue)
@@ -255,6 +291,10 @@ class SettingsStore: ObservableObject {
         hotkeyEnabled = DefaultSettings.hotkeyEnabled
         hotkeyModifier = DefaultSettings.hotkeyModifier
         hotkeyKey = DefaultSettings.hotkeyKey
+        meetingAutoDetect = DefaultSettings.meetingAutoDetect
+        meetingHotkeyEnabled = DefaultSettings.meetingHotkeyEnabled
+        meetingHotkeyModifier = DefaultSettings.meetingHotkeyModifier
+        meetingHotkeyKey = DefaultSettings.meetingHotkeyKey
         holdToTalk = DefaultSettings.holdToTalk
         prompts = DefaultSettings.prompts
         selectedPromptId = DefaultSettings.selectedPromptId

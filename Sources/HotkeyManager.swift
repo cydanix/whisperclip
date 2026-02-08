@@ -9,6 +9,7 @@ class HotkeyManager: ObservableObject {
     var currentModifier: NSEvent.ModifierFlags?
     var currentKeyCode: UInt16?
     static let shared = HotkeyManager()
+    static let meetingShared = HotkeyManager()
 
     private init() {
     }

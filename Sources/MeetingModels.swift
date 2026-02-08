@@ -240,13 +240,13 @@ struct MeetingNote: Identifiable, Codable, Hashable {
     }
     
     var fullTranscript: String {
-        segments.map { segment in
+        segments.sorted { $0.startTime < $1.startTime }.map { segment in
             "[\(segment.formattedTime)] \(segment.speaker.displayName): \(segment.text)"
         }.joined(separator: "\n")
     }
     
     var plainTranscript: String {
-        segments.map { $0.text }.joined(separator: " ")
+        segments.sorted { $0.startTime < $1.startTime }.map { $0.text }.joined(separator: " ")
     }
     
     var formattedDuration: String {
@@ -272,7 +272,12 @@ struct MeetingNote: Identifiable, Codable, Hashable {
     }
     
     mutating func addSegment(_ segment: MeetingSegment) {
-        segments.append(segment)
+        // Insert in chronological order by startTime
+        if let index = segments.firstIndex(where: { $0.startTime > segment.startTime }) {
+            segments.insert(segment, at: index)
+        } else {
+            segments.append(segment)
+        }
     }
     
     mutating func complete() {

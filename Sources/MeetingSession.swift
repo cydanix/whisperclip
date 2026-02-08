@@ -13,8 +13,9 @@ class MeetingSession: ObservableObject {
     @Published private(set) var status: SessionStatus = .idle
     @Published private(set) var liveTranscript: [MeetingSegment] = []
     @Published private(set) var errorMessage: String?
-    @Published var autoDetectEnabled: Bool = false {
+    @Published var autoDetectEnabled: Bool = SettingsStore.shared.meetingAutoDetect {
         didSet {
+            SettingsStore.shared.meetingAutoDetect = autoDetectEnabled
             if autoDetectEnabled {
                 detector.startDetection()
             } else {
@@ -60,6 +61,10 @@ class MeetingSession: ObservableObject {
     
     private init() {
         setupObservers()
+        // Resume detection if user previously enabled it
+        if autoDetectEnabled {
+            detector.startDetection()
+        }
     }
     
     private func setupObservers() {
@@ -216,9 +221,10 @@ class MeetingSession: ObservableObject {
     // MARK: - Segment Handling
     
     private func handleNewSegment(_ segment: MeetingSegment, forMeetingId meetingId: UUID) {
-        // Add to live transcript (only if still active)
+        // Add to live transcript (only if still active), sorted by timestamp
         if isActive {
             liveTranscript.append(segment)
+            liveTranscript.sort { $0.startTime < $1.startTime }
         }
         
         // Add to storage - always save even if session is ending
@@ -260,23 +266,38 @@ class MeetingSession: ObservableObject {
     
     // MARK: - Auto Detection Handlers
     
+    private var autoStopTimer: Timer?
+    
     private func handleMeetingAppDetected(source: MeetingSource) {
         guard autoDetectEnabled, !isActive else { return }
         
-        Logger.log("Auto-detected meeting app: \(source.rawValue)", log: Logger.general)
+        Logger.log("Auto-detected meeting app: \(source.rawValue), auto-starting recording", log: Logger.general)
         
-        // Prompt user or auto-start (could be a setting)
-        // For now, just log it - user needs to manually start
-        NotificationCenter.default.post(name: .meetingAppDetected, object: source)
+        // Cancel any pending auto-stop from a previous detection cycle
+        autoStopTimer?.invalidate()
+        autoStopTimer = nil
+        
+        // Auto-start recording
+        Task {
+            await startMeeting(source: source)
+        }
     }
     
     private func handleMeetingAppClosed() {
         guard autoDetectEnabled, isActive else { return }
         
-        Logger.log("Meeting app closed, considering auto-stop", log: Logger.general)
+        Logger.log("Meeting app closed, auto-stopping after delay", log: Logger.general)
         
-        // Could auto-stop after a delay - for now just notify
-        // User should manually stop to ensure proper processing
+        // Stop after a short delay to avoid false positives (e.g. app briefly hidden)
+        autoStopTimer?.invalidate()
+        autoStopTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self, self.isActive else { return }
+                Logger.log("Auto-stop delay elapsed, stopping meeting", log: Logger.general)
+                await self.stopMeeting()
+                self.autoStopTimer = nil
+            }
+        }
     }
     
     // MARK: - Error Handling

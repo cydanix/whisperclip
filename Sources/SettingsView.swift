@@ -7,6 +7,9 @@ struct SettingsView: View {
     @State private var selectedModifierRawValue: UInt = NSEvent.ModifierFlags.command.rawValue
     @State private var hotkeyKeyString: String = "Space"
     @State private var selectedKeyCode: UInt16 = 49 // Default to Space
+    @State private var meetingModifierRawValue: UInt = NSEvent.ModifierFlags.control.rawValue
+    @State private var meetingKeyString: String = "M"
+    @State private var meetingKeyCode: UInt16 = 46 // Default to M
     
     // Prompt management state
     @State private var showingNewPromptDialog = false
@@ -59,6 +62,26 @@ struct SettingsView: View {
         (NSEvent.ModifierFlags([.option, .control]).rawValue, "⌥⌃ Option+Control"),
         (NSEvent.ModifierFlags([.option, .shift]).rawValue, "⌥⇧ Option+Shift"),
         (NSEvent.ModifierFlags([.control, .shift]).rawValue, "⌃⇧ Control+Shift")
+    ]
+    
+    // Meeting hotkey key options (includes letter keys since they're used with modifiers)
+    private let meetingKeyOptions: [(UInt16, String)] = [
+        (46, "M"),
+        (45, "N"),
+        (15, "R"),
+        (49, "Space"),
+        (36, "Return"),
+        (96, "F5"),
+        (97, "F6"),
+        (98, "F7"),
+        (100, "F8"),
+        (101, "F9"),
+        (109, "F10"),
+        (103, "F11"),
+        (111, "F12"),
+        (105, "F13"),
+        (107, "F14"),
+        (113, "F15")
     ]
     
     // Allowed key options (safe keys that won't interfere with system hotkeys)
@@ -318,6 +341,67 @@ struct SettingsView: View {
                     }
                     .background(Color.gray.opacity(0.2))
                     .cornerRadius(8)
+
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Toggle("Enable Meeting Hotkey", isOn: Binding(
+                                get: { settings.meetingHotkeyEnabled },
+                                set: { newValue in
+                                    settings.meetingHotkeyEnabled = newValue
+                                    updateMeetingHotkey()
+                                }
+                            ))
+                            .font(.headline)
+                            
+                            if settings.meetingHotkeyEnabled {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Modifier Keys")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                    
+                                    Picker("Modifier", selection: $meetingModifierRawValue) {
+                                        ForEach(modifierOptions, id: \.0) { option in
+                                            Text(option.1).tag(option.0)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .onChange(of: meetingModifierRawValue) { _, newValue in
+                                        settings.meetingHotkeyModifier = NSEvent.ModifierFlags(rawValue: newValue)
+                                        updateMeetingHotkey()
+                                    }
+                                    
+                                    Text("Key")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                    
+                                    Picker("Key", selection: $meetingKeyCode) {
+                                        ForEach(meetingKeyOptions, id: \.0) { option in
+                                            Text(option.1).tag(option.0)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .onChange(of: meetingKeyCode) { _, newValue in
+                                        settings.meetingHotkeyKey = newValue
+                                        meetingKeyString = meetingKeyCodeToString(newValue)
+                                        updateMeetingHotkey()
+                                    }
+                                    
+                                    Text("Current hotkey: \(getMeetingModifierString()) + \(meetingKeyString)")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                            
+                            Text("Use this hotkey to start/stop meeting recording from anywhere on your system.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .padding()
+                    }
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(8)
                 }
                 .padding()
             }
@@ -530,6 +614,9 @@ struct SettingsView: View {
         selectedModifierRawValue = settings.hotkeyModifier.rawValue
         selectedKeyCode = settings.hotkeyKey
         hotkeyKeyString = keyCodeToString(settings.hotkeyKey)
+        meetingModifierRawValue = settings.meetingHotkeyModifier.rawValue
+        meetingKeyCode = settings.meetingHotkeyKey
+        meetingKeyString = meetingKeyCodeToString(settings.meetingHotkeyKey)
     }
     
     private func updateHotkey() {
@@ -538,6 +625,14 @@ struct SettingsView: View {
             hotkeyEnabled: settings.hotkeyEnabled,
             modifier: settings.hotkeyModifier,
             keyCode: settings.hotkeyKey
+        )
+    }
+    
+    private func updateMeetingHotkey() {
+        HotkeyManager.meetingShared.updateSystemHotkey(
+            hotkeyEnabled: settings.meetingHotkeyEnabled,
+            modifier: settings.meetingHotkeyModifier,
+            keyCode: settings.meetingHotkeyKey
         )
     }
     
@@ -551,6 +646,16 @@ struct SettingsView: View {
         return "⌘ Command" // Default fallback
     }
     
+    private func getMeetingModifierString() -> String {
+        let modifierRawValue = settings.meetingHotkeyModifier.rawValue
+        for option in modifierOptions {
+            if option.0 == modifierRawValue {
+                return option.1
+            }
+        }
+        return "⌃ Control" // Default fallback
+    }
+    
     private func keyCodeToString(_ keyCode: UInt16) -> String {
         // Map key codes to their string representations
         for option in keyOptions {
@@ -559,6 +664,15 @@ struct SettingsView: View {
             }
         }
         return "Key \(keyCode)" // Fallback for unknown keys
+    }
+    
+    private func meetingKeyCodeToString(_ keyCode: UInt16) -> String {
+        for option in meetingKeyOptions {
+            if option.0 == keyCode {
+                return option.1
+            }
+        }
+        return "Key \(keyCode)"
     }
     
     // MARK: - Prompt Management

@@ -38,13 +38,23 @@
 - Open source - audit the code yourself
 - Secure sandboxed environment
 
+### 📝 **AI Meeting Notes**
+- **Live meeting transcription** with dual-channel audio (microphone + system audio)
+- Automatic **speaker separation** — "Me" vs "Others" with accurate timestamps
+- AI-generated **summaries, action items, decisions, and follow-ups**
+- **Post-meeting Q&A** — ask questions about any meeting and get AI-powered answers
+- **Auto-detection** of Zoom, Teams, Google Meet, Webex, Slack, Discord, and FaceTime
+- Configurable **meeting hotkey** (Control+M by default) to start/stop recording
+- **Export** meetings as Markdown or copy transcripts and summaries
+- Beautiful detail view with Summary, Transcript, Actions, and Q&A tabs
+
 ### ⚡ **Productivity Features**
 - Global hotkey support (Option+Space by default)
 - **Hold to Talk mode** - hold hotkey to record, release to stop
 - Auto-copy to clipboard
 - Auto-paste functionality
 - Auto-enter for instant message sending
-- Menu bar integration
+- Menu bar integration with background operation (runs without a visible window)
 - Start minimized option
 - Auto-stop recording after 10 minutes
 - **Transcription history** - Browse and search past transcriptions
@@ -156,7 +166,16 @@ Sources/
 ├── TranscriptionHistory.swift # History data management
 ├── ModelStorage.swift         # Model management
 ├── SettingsStore.swift        # User preferences
-└── HotkeyManager.swift        # Global shortcuts
+├── HotkeyManager.swift        # Global shortcuts
+├── MeetingSession.swift       # Meeting lifecycle orchestration
+├── MeetingRecorder.swift      # Dual-channel audio capture & transcription
+├── MeetingAI.swift            # AI summaries, Q&A, and analysis
+├── MeetingDetector.swift      # Meeting app auto-detection
+├── MeetingStorage.swift       # Meeting notes persistence
+├── MeetingModels.swift        # Meeting data models
+├── MeetingNotesView.swift     # Meeting list & live recording UI
+├── MeetingDetailView.swift    # Meeting detail with tabs
+└── MeetingWaveformView.swift  # Audio waveform visualization
 ```
 
 ### Dependencies
@@ -215,7 +234,7 @@ WhisperClip is developed by **Cydanix LLC**.
 
 - **Website**: [whisperclip.com](https://whisperclip.com)
 - **Support**: [support@cydanix.com](mailto:support@cydanix.com)
-- **Version**: 1.0.48
+- **Version**: 1.0.49
 
 ## 🙏 Acknowledgments
 

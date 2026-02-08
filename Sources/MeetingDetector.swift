@@ -82,10 +82,9 @@ class MeetingDetector: ObservableObject {
         for app in runningApps {
             guard let bundleId = app.bundleIdentifier else { continue }
             
-            // Check if it's a known meeting app
+            // Check if it's a known meeting app with a meeting window open
             if let source = meetingAppBundleIds[bundleId] {
-                // Check if the app has active windows (indicating a meeting might be in progress)
-                if app.isActive || isAppInMeeting(app: app, source: source) {
+                if isAppInMeeting(app: app, source: source) {
                     handleMeetingDetected(source: source, appName: app.localizedName ?? source.rawValue)
                     return
                 }
@@ -123,8 +122,8 @@ class MeetingDetector: ObservableObject {
     }
     
     private func getWindowsForApp(_ app: NSRunningApplication) -> [String]? {
-        // Get window list using CGWindowListCopyWindowInfo
-        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
+        // Get window list using CGWindowListCopyWindowInfo (include all windows, not just on-screen)
+        guard let windowList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else {
             return nil
         }
         

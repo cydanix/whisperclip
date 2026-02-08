@@ -10,9 +10,13 @@ struct MeetingDetailView: View {
     @State private var questionText = ""
     @State private var isAskingQuestion = false
     @State private var qaError: String?
-    @State private var currentMeeting: MeetingNote
     @State private var isRegenerating = false
     @State private var showCopiedToast = false
+    
+    /// Always read the latest meeting data from storage (reactive to @Published changes)
+    private var currentMeeting: MeetingNote {
+        storage.getMeeting(meeting.id) ?? meeting
+    }
     
     enum DetailTab: String, CaseIterable {
         case summary = "Summary"
@@ -32,7 +36,6 @@ struct MeetingDetailView: View {
     
     init(meeting: MeetingNote) {
         self.meeting = meeting
-        self._currentMeeting = State(initialValue: meeting)
     }
     
     private let dateFormatter: DateFormatter = {
@@ -99,12 +102,8 @@ struct MeetingDetailView: View {
         }
         .foregroundColor(.white)
         .frame(minWidth: 700, minHeight: 600)
-        .onAppear {
-            // Refresh meeting data
-            if let updated = storage.getMeeting(meeting.id) {
-                currentMeeting = updated
-            }
-        }
+        // currentMeeting is now a computed property that reads directly
+        // from storage, so the view is always in sync automatically
     }
     
     // MARK: - Header
@@ -175,10 +174,7 @@ struct MeetingDetailView: View {
                 HStack(spacing: 12) {
                     // Favorite button
                     Button {
-                        storage.toggleFavorite(currentMeeting.id)
-                        if let updated = storage.getMeeting(currentMeeting.id) {
-                            currentMeeting = updated
-                        }
+                        storage.toggleFavorite(meeting.id)
                     } label: {
                         Image(systemName: currentMeeting.isFavorite ? "star.fill" : "star")
                             .font(.system(size: 16))
@@ -600,15 +596,17 @@ struct MeetingDetailView: View {
         
         let question = questionText
         questionText = ""
+        let meetingId = meeting.id
         
         Task {
             do {
-                _ = try await MeetingSession.shared.askQuestion(question, meetingId: currentMeeting.id)
+                _ = try await MeetingSession.shared.askQuestion(question, meetingId: meetingId)
                 
+                // No need to manually update currentMeeting — it's a computed
+                // property that reads from storage, and storage.addQA already
+                // updated the @Published meetings array. The view re-renders
+                // automatically via @ObservedObject.
                 await MainActor.run {
-                    if let updated = storage.getMeeting(currentMeeting.id) {
-                        currentMeeting = updated
-                    }
                     isAskingQuestion = false
                 }
             } catch {
@@ -623,16 +621,15 @@ struct MeetingDetailView: View {
     
     private func regenerateSummary() {
         isRegenerating = true
+        let meetingId = meeting.id
         
         Task {
             do {
                 let summary = try await MeetingAI.shared.generateSummary(from: currentMeeting)
                 
                 await MainActor.run {
-                    storage.updateSummary(summary, for: currentMeeting.id)
-                    if let updated = storage.getMeeting(currentMeeting.id) {
-                        currentMeeting = updated
-                    }
+                    storage.updateSummary(summary, for: meetingId)
+                    // currentMeeting is computed from storage — auto-updates
                     isRegenerating = false
                 }
             } catch {

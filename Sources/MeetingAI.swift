@@ -57,7 +57,7 @@ class MeetingAI {
         
         let userPrompt = """
         Meeting Transcript:
-        \(truncateForLLM(transcript, maxChars: 4000))
+        \(truncateForLLM(transcript, maxChars: 24000))
         
         Brief Summary:
         """
@@ -75,7 +75,7 @@ class MeetingAI {
         
         let userPrompt = """
         Meeting Transcript:
-        \(truncateForLLM(transcript, maxChars: 4000))
+        \(truncateForLLM(transcript, maxChars: 24000))
         
         Detailed Summary:
         """
@@ -94,7 +94,7 @@ class MeetingAI {
         
         let userPrompt = """
         Meeting Transcript:
-        \(truncateForLLM(transcript, maxChars: 4000))
+        \(truncateForLLM(transcript, maxChars: 24000))
         
         Action Items:
         """
@@ -112,7 +112,7 @@ class MeetingAI {
         
         let userPrompt = """
         Meeting Transcript:
-        \(truncateForLLM(transcript, maxChars: 4000))
+        \(truncateForLLM(transcript, maxChars: 24000))
         
         Decisions:
         """
@@ -130,7 +130,7 @@ class MeetingAI {
         
         let userPrompt = """
         Meeting Transcript:
-        \(truncateForLLM(transcript, maxChars: 4000))
+        \(truncateForLLM(transcript, maxChars: 24000))
         
         Follow-ups:
         """
@@ -151,7 +151,7 @@ class MeetingAI {
         
         let userPrompt = """
         Meeting Transcript:
-        \(truncateForLLM(transcript, maxChars: 4000))
+        \(truncateForLLM(transcript, maxChars: 24000))
         
         Topics:
         """
@@ -192,7 +192,7 @@ class MeetingAI {
         \(contextInfo)
         
         Transcript:
-        \(truncateForLLM(transcript, maxChars: 3500))
+        \(truncateForLLM(transcript, maxChars: 20000))
         
         """
         

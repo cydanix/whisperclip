@@ -10,6 +10,7 @@ struct MeetingNotesView: View {
     @State private var searchText = ""
     @State private var showingClearConfirmation = false
     @State private var pulseAnimation = false
+    @ObservedObject private var settings = SettingsStore.shared
     
     private let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -50,6 +51,26 @@ struct MeetingNotesView: View {
         } message: {
             Text("Are you sure you want to delete all meeting notes? This action cannot be undone.")
         }
+        .onAppear {
+            setupMeetingHotkey()
+        }
+    }
+    
+    private func setupMeetingHotkey() {
+        HotkeyManager.meetingShared.setAction {
+            Task { @MainActor in
+                if session.isActive {
+                    await session.stopMeeting()
+                } else {
+                    await session.startMeeting()
+                }
+            }
+        }
+        HotkeyManager.meetingShared.updateSystemHotkey(
+            hotkeyEnabled: settings.meetingHotkeyEnabled,
+            modifier: settings.meetingHotkeyModifier,
+            keyCode: settings.meetingHotkeyKey
+        )
     }
     
     // MARK: - Active Meeting View

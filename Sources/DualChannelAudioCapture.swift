@@ -50,7 +50,8 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
     
     // MARK: - State
     
-    private var startTime: Date?
+    /// Set once before capture starts, read from nonisolated audio callbacks
+    nonisolated(unsafe) private var startTime: Date?
     private var chunkTimer: Timer?
     private var levelTimer: Timer?
     private var audioCallback: AudioChunkCallback?
@@ -209,9 +210,10 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
             }
         }
         
-        // Add to buffer using actor
+        // Add to buffer using actor with elapsed time
+        let elapsed = self.startTime.map { Date().timeIntervalSince($0) } ?? 0
         Task {
-            await self.audioBuffers.appendMicSamples(samples)
+            await self.audioBuffers.appendMicSamples(samples, atTime: elapsed)
         }
     }
     
@@ -263,23 +265,20 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
     private func processChunks(isFinal: Bool) {
         guard let callback = audioCallback else { return }
         
-        let currentTime = startTime.map { Date().timeIntervalSince($0) } ?? 0
-        let chunkStartTime = max(0, currentTime - chunkDuration)
-        
-        // Process buffers asynchronously
+        // Process buffers asynchronously, using per-source timestamps
         Task {
-            // Get microphone samples
-            let micSamples = await audioBuffers.getMicSamples()
-            if micSamples.count >= sampleRate * 2 {  // At least 2 seconds
-                Logger.log("Processing microphone chunk: \(micSamples.count) samples", log: Logger.general)
-                callback(.microphone, micSamples, chunkStartTime)
+            // Get microphone samples with their actual start time
+            let micResult = await audioBuffers.getMicSamples()
+            if micResult.samples.count >= sampleRate * 2 {  // At least 2 seconds
+                Logger.log("Processing microphone chunk: \(micResult.samples.count) samples at \(String(format: "%.1f", micResult.startTime))s", log: Logger.general)
+                callback(.microphone, micResult.samples, micResult.startTime)
             }
             
-            // Get system audio samples
-            let systemSamples = await audioBuffers.getSystemSamples()
-            if systemSamples.count >= sampleRate * 2 {  // At least 2 seconds
-                Logger.log("Processing system audio chunk: \(systemSamples.count) samples", log: Logger.general)
-                callback(.system, systemSamples, chunkStartTime)
+            // Get system audio samples with their actual start time
+            let systemResult = await audioBuffers.getSystemSamples()
+            if systemResult.samples.count >= sampleRate * 2 {  // At least 2 seconds
+                Logger.log("Processing system audio chunk: \(systemResult.samples.count) samples at \(String(format: "%.1f", systemResult.startTime))s", log: Logger.general)
+                callback(.system, systemResult.samples, systemResult.startTime)
             }
         }
     }
@@ -353,9 +352,10 @@ extension DualChannelAudioCapture: SCStreamOutput {
             }
         }
         
-        // Add to buffer using actor
+        // Add to buffer using actor with elapsed time
+        let elapsed = self.startTime.map { Date().timeIntervalSince($0) } ?? 0
         Task {
-            await self.audioBuffers.appendSystemSamples(samples)
+            await self.audioBuffers.appendSystemSamples(samples, atTime: elapsed)
         }
     }
 }
@@ -367,30 +367,44 @@ extension DualChannelAudioCapture: SCStreamOutput {
 private actor AudioBufferActor {
     var micBuffer: [Float] = []
     var systemBuffer: [Float] = []
+    var micBufferStartTime: TimeInterval?
+    var systemBufferStartTime: TimeInterval?
     
-    func appendMicSamples(_ samples: [Float]) {
+    func appendMicSamples(_ samples: [Float], atTime time: TimeInterval) {
+        if micBuffer.isEmpty {
+            micBufferStartTime = time
+        }
         micBuffer.append(contentsOf: samples)
     }
     
-    func appendSystemSamples(_ samples: [Float]) {
+    func appendSystemSamples(_ samples: [Float], atTime time: TimeInterval) {
+        if systemBuffer.isEmpty {
+            systemBufferStartTime = time
+        }
         systemBuffer.append(contentsOf: samples)
     }
     
-    func getMicSamples() -> [Float] {
+    func getMicSamples() -> (samples: [Float], startTime: TimeInterval) {
         let samples = micBuffer
+        let startTime = micBufferStartTime ?? 0
         micBuffer = []
-        return samples
+        micBufferStartTime = nil
+        return (samples, startTime)
     }
     
-    func getSystemSamples() -> [Float] {
+    func getSystemSamples() -> (samples: [Float], startTime: TimeInterval) {
         let samples = systemBuffer
+        let startTime = systemBufferStartTime ?? 0
         systemBuffer = []
-        return samples
+        systemBufferStartTime = nil
+        return (samples, startTime)
     }
     
     func clearAll() {
         micBuffer = []
         systemBuffer = []
+        micBufferStartTime = nil
+        systemBufferStartTime = nil
     }
 }
 

@@ -298,7 +298,14 @@ class MeetingSession: ObservableObject {
     private var autoStopTimer: Timer?
     
     private func handleMeetingAppDetected(source: MeetingSource) {
-        guard autoDetectEnabled, !isActive else { return }
+        guard autoDetectEnabled else {
+            Logger.log("Meeting app detected (\(source.rawValue)), but auto-detect is disabled", log: Logger.general)
+            return
+        }
+        guard !isActive else {
+            Logger.log("Meeting app detected (\(source.rawValue)), but a session is already active", log: Logger.general)
+            return
+        }
         
         let settings = SettingsStore.shared
         

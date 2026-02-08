@@ -207,7 +207,7 @@ enum MeetingSource: String, Codable, CaseIterable {
     /// Window title patterns that indicate the app is open but NOT in a meeting
     var nonMeetingWindowKeywords: [String] {
         switch self {
-        case .zoom: return ["Zoom Workplace"]
+        case .zoom: return []
         case .teams: return []
         case .meet: return []
         case .webex: return []

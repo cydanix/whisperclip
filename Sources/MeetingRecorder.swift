@@ -141,14 +141,30 @@ class MeetingRecorder: NSObject, ObservableObject {
         durationTimer?.invalidate()
         durationTimer = nil
         
-        // Stop dual capture
+        // Stop dual capture and retrieve remaining buffered audio
+        var finalAudio: (mic: (samples: [Float], startTime: TimeInterval),
+                         system: (samples: [Float], startTime: TimeInterval))?
         if let capture = dualCapture {
-            await capture.stopCapture()
+            finalAudio = await capture.stopCapture()
+        }
+        
+        // Wait for any previously queued transcription work to finish
+        await transcriptionQueue.drain()
+        
+        // Process final audio chunks directly (awaited, not fire-and-forget)
+        // so the transcription pipeline is still alive
+        if let finalAudio = finalAudio {
+            if finalAudio.mic.samples.count >= sampleRate * 2 {
+                await processAudioChunk(source: .microphone, samples: finalAudio.mic.samples, startTime: finalAudio.mic.startTime)
+            }
+            if finalAudio.system.samples.count >= sampleRate * 2 {
+                await processAudioChunk(source: .system, samples: finalAudio.system.samples, startTime: finalAudio.system.startTime)
+            }
         }
         
         isRecording = false
         
-        // Cleanup
+        // Cleanup (safe now — all transcription work is complete)
         cleanup()
         
         Logger.log("Meeting recording stopped", log: Logger.general)
@@ -393,6 +409,13 @@ private actor TranscriptionQueue {
         
         // Continue processing queue
         await processNext()
+    }
+    
+    /// Wait until all in-flight and pending transcription work completes
+    func drain() async {
+        while isProcessing || !pendingRequests.isEmpty {
+            try? await Task.sleep(nanoseconds: 10_000_000)  // 10ms
+        }
     }
 }
 

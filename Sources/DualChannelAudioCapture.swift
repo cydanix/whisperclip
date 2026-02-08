@@ -110,9 +110,14 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
         Logger.log("Dual channel audio capture started", log: Logger.general)
     }
     
-    /// Stop all audio capture
-    func stopCapture() async {
-        guard isCapturing else { return }
+    /// Stop all audio capture and return any remaining buffered audio.
+    /// Callers should process the returned samples before tearing down the
+    /// transcription pipeline.
+    @discardableResult
+    func stopCapture() async -> (mic: (samples: [Float], startTime: TimeInterval), system: (samples: [Float], startTime: TimeInterval)) {
+        guard isCapturing else {
+            return (mic: ([], 0), system: ([], 0))
+        }
         
         // Stop timers
         chunkTimer?.invalidate()
@@ -120,27 +125,26 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
         levelTimer?.invalidate()
         levelTimer = nil
         
-        // Process any remaining audio
-        processChunks(isFinal: true)
-        
-        // Stop microphone
+        // Stop audio inputs first so no new samples arrive
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine = nil
         
-        // Stop system audio
         if let stream = scStream {
             try? await stream.stopCapture()
             scStream = nil
         }
         
-        // Clear buffers
-        await audioBuffers.clearAll()
+        // Drain remaining audio from buffers (awaited, not fire-and-forget)
+        let micResult = await audioBuffers.getMicSamples()
+        let systemResult = await audioBuffers.getSystemSamples()
         
         isCapturing = false
         audioCallback = nil
         
         Logger.log("Dual channel audio capture stopped", log: Logger.general)
+        
+        return (mic: micResult, system: systemResult)
     }
     
     // MARK: - Microphone Capture

@@ -261,15 +261,15 @@ class DualChannelAudioCapture: NSObject, ObservableObject {
     private func startChunkProcessing() {
         chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.processChunks(isFinal: false)
+                self?.processChunks()
             }
         }
     }
     
-    private func processChunks(isFinal: Bool) {
+    private func processChunks() {
         guard let callback = audioCallback else { return }
         
-        let minSamples = isFinal ? 1 : sampleRate * 2  // At least 2 seconds, unless final
+        let minSamples = sampleRate * 2  // At least 2 seconds
         
         // Process buffers asynchronously, using per-source timestamps
         Task {

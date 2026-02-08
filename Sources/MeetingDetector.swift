@@ -89,14 +89,9 @@ class MeetingDetector: ObservableObject {
             }
         }
         
-        // Check for web-based meetings (Meet in browser) only if those sources are enabled
-        if let browserMeeting = checkBrowserForMeetings() {
-            guard enabledApps.contains(browserMeeting.source.rawValue) else {
-                if isMeetingActive {
-                    handleMeetingEnded()
-                }
-                return
-            }
+        // Check for web-based meetings (Meet in browser)
+        for browserMeeting in checkBrowserForMeetings() {
+            guard enabledApps.contains(browserMeeting.source.rawValue) else { continue }
             handleMeetingDetected(source: browserMeeting.source, appName: browserMeeting.name)
             return
         }
@@ -178,7 +173,7 @@ class MeetingDetector: ObservableObject {
         return (titles.isEmpty ? nil : titles, totalCount)
     }
     
-    private func checkBrowserForMeetings() -> (source: MeetingSource, name: String)? {
+    private func checkBrowserForMeetings() -> [(source: MeetingSource, name: String)] {
         // Check popular browsers for meeting URLs in window titles
         let browserBundleIds = [
             "com.google.Chrome",
@@ -188,6 +183,8 @@ class MeetingDetector: ObservableObject {
             "com.brave.Browser"
         ]
         
+        var results: [(source: MeetingSource, name: String)] = []
+        var foundSources: Set<MeetingSource> = []
         let runningApps = NSWorkspace.shared.runningApplications
         
         for app in runningApps {
@@ -199,27 +196,33 @@ class MeetingDetector: ObservableObject {
             
             for window in windows {
                 // Check for Google Meet
-                if window.localizedCaseInsensitiveContains("meet.google.com") ||
-                   window.localizedCaseInsensitiveContains("Google Meet") {
-                    return (.meet, "Google Meet")
+                if !foundSources.contains(.meet) &&
+                   (window.localizedCaseInsensitiveContains("meet.google.com") ||
+                    window.localizedCaseInsensitiveContains("Google Meet")) {
+                    results.append((.meet, "Google Meet"))
+                    foundSources.insert(.meet)
                 }
                 
                 // Check for Zoom in browser
-                if window.localizedCaseInsensitiveContains("zoom.us") &&
+                if !foundSources.contains(.zoom) &&
+                   window.localizedCaseInsensitiveContains("zoom.us") &&
                    (window.localizedCaseInsensitiveContains("meeting") ||
                     window.localizedCaseInsensitiveContains("webinar")) {
-                    return (.zoom, "Zoom (Browser)")
+                    results.append((.zoom, "Zoom (Browser)"))
+                    foundSources.insert(.zoom)
                 }
                 
                 // Check for Teams in browser
-                if window.localizedCaseInsensitiveContains("teams.microsoft.com") ||
-                   window.localizedCaseInsensitiveContains("teams.live.com") {
-                    return (.teams, "Teams (Browser)")
+                if !foundSources.contains(.teams) &&
+                   (window.localizedCaseInsensitiveContains("teams.microsoft.com") ||
+                    window.localizedCaseInsensitiveContains("teams.live.com")) {
+                    results.append((.teams, "Teams (Browser)"))
+                    foundSources.insert(.teams)
                 }
             }
         }
         
-        return nil
+        return results
     }
     
     private func handleMeetingDetected(source: MeetingSource, appName: String) {

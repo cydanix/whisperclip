@@ -167,17 +167,30 @@ struct SettingsView: View {
                         Text("Auto Actions")
                             .font(.headline)
                             .foregroundColor(.white)
-                        
+
+                        Toggle("Auto-paste after transcription", isOn: Binding(
+                            get: { settings.autoPaste },
+                            set: { newValue in
+                                settings.autoPaste = newValue
+                            }
+                        ))
+
+                        Text("Automatically paste transcribed text into the active application.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
                         Toggle("Auto-press Enter after paste", isOn: Binding(
                             get: { settings.autoEnter },
                             set: { newValue in
                                 settings.autoEnter = newValue
                             }
                         ))
-                        
+                        .disabled(!settings.autoPaste)
+
                         Text("Automatically press Enter after pasting transcribed text into the active application.")
                             .font(.caption)
                             .foregroundColor(.gray)
+                            .opacity(settings.autoPaste ? 1.0 : 0.5)
                     }
                     .padding()
                 }

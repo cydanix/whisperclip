@@ -18,7 +18,9 @@ struct DefaultSettings {
     static let hasCompletedOnboarding = false
     static let language = "auto"
     static let sttEngine = STTEngine.parakeet
+    static let autoPaste = true
     static let autoEnter = false
+    static let debugLogging = false
     static let startMinimized = false
     static let displayRecordingOverlay = false
     static let overlayPosition = "topRight"
@@ -52,7 +54,9 @@ class SettingsStore: ObservableObject {
         case hasCompletedOnboarding = "hasCompletedOnboarding"
         case language = "language"
         case sttEngine = "sttEngine"
+        case autoPaste = "autoPaste"
         case autoEnter = "autoEnter"
+        case debugLogging = "debugLogging"
         case startMinimized = "startMinimized"
         case displayRecordingOverlay = "displayRecordingOverlay"
         case overlayPosition = "overlayPosition"
@@ -94,13 +98,25 @@ class SettingsStore: ObservableObject {
             defaults.set(sttEngine.rawValue, forKey: Keys.sttEngine.rawValue)
         }
     }
-    
+
+    @Published var autoPaste: Bool = DefaultSettings.autoPaste {
+        didSet {
+            defaults.set(autoPaste, forKey: Keys.autoPaste.rawValue)
+        }
+    }
+
     @Published var autoEnter: Bool = DefaultSettings.autoEnter {
         didSet {
             defaults.set(autoEnter, forKey: Keys.autoEnter.rawValue)
         }
     }
-    
+
+    @Published var debugLogging: Bool = DefaultSettings.debugLogging {
+        didSet {
+            defaults.set(debugLogging, forKey: Keys.debugLogging.rawValue)
+        }
+    }
+
     @Published var startMinimized: Bool = DefaultSettings.startMinimized {
         didSet {
             defaults.set(startMinimized, forKey: Keys.startMinimized.rawValue)
@@ -247,7 +263,9 @@ class SettingsStore: ObservableObject {
         } else {
             self.sttEngine = DefaultSettings.sttEngine
         }
+        self.autoPaste = defaults.object(forKey: Keys.autoPaste.rawValue) == nil ? DefaultSettings.autoPaste : defaults.bool(forKey: Keys.autoPaste.rawValue)
         self.autoEnter = defaults.object(forKey: Keys.autoEnter.rawValue) == nil ? DefaultSettings.autoEnter : defaults.bool(forKey: Keys.autoEnter.rawValue)
+        self.debugLogging = defaults.object(forKey: Keys.debugLogging.rawValue) == nil ? DefaultSettings.debugLogging : defaults.bool(forKey: Keys.debugLogging.rawValue)
         self.startMinimized = defaults.object(forKey: Keys.startMinimized.rawValue) == nil ? DefaultSettings.startMinimized : defaults.bool(forKey: Keys.startMinimized.rawValue)
         self.displayRecordingOverlay = defaults.object(forKey: Keys.displayRecordingOverlay.rawValue) == nil ? DefaultSettings.displayRecordingOverlay : defaults.bool(forKey: Keys.displayRecordingOverlay.rawValue)
         self.overlayPosition = defaults.string(forKey: Keys.overlayPosition.rawValue) ?? DefaultSettings.overlayPosition
@@ -336,7 +354,9 @@ class SettingsStore: ObservableObject {
         hasCompletedOnboarding = DefaultSettings.hasCompletedOnboarding
         language = DefaultSettings.language
         sttEngine = DefaultSettings.sttEngine
+        autoPaste = DefaultSettings.autoPaste
         autoEnter = DefaultSettings.autoEnter
+        debugLogging = DefaultSettings.debugLogging
         startMinimized = DefaultSettings.startMinimized
         displayRecordingOverlay = DefaultSettings.displayRecordingOverlay
         overlayPosition = DefaultSettings.overlayPosition

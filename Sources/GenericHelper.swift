@@ -439,36 +439,99 @@ enum GenericHelper {
     }
 
     static func paste(text: String) -> Bool {
+        Logger.debugLog("=== PASTE FUNCTION CALLED ===", log: Logger.general)
         if GenericHelper.logSensitiveData() {
             Logger.log("Auto pasting: \(text)", log: Logger.general)
         }
 
         // Do not paste if WhisperClip is the active app
         if isWhisperClipActive() {
-            if GenericHelper.logSensitiveData() {
-                Logger.log("Paste skipped: WhisperClip is frontmost app", log: Logger.general)
-            }
+            Logger.log("Paste skipped: WhisperClip is frontmost app", log: Logger.general)
             return false
         }
 
-        // ⌘V in whichever app is active
-        let script = #"""
-        tell application "System Events"
-            key code 9 using {command down}
-        end tell
-        """#
-        var err: NSDictionary?
-        NSAppleScript(source: script)?.executeAndReturnError(&err)
+        // Get current frontmost app
+        if let frontApp = NSWorkspace.shared.frontmostApplication {
+            Logger.log("Current frontmost app: \(frontApp.localizedName ?? "unknown") [\(frontApp.bundleIdentifier ?? "unknown")]", log: Logger.general)
+        }
 
-        if let err {
-            Logger.log("AppleScript error: \(err.description)", log: Logger.general, type: .error)
-            return false
+        // Wait for user to switch to target app (max 3 seconds)
+        Logger.log("Waiting for user to switch to target app...", log: Logger.general)
+        var waitCount = 0
+        while isWhisperClipActive() && waitCount < 30 {
+            Thread.sleep(forTimeInterval: 0.1)
+            waitCount += 1
+        }
+        Logger.log("Wait complete. Waited \(waitCount * 100)ms", log: Logger.general)
+
+        // Additional small delay to ensure app is ready
+        Thread.sleep(forTimeInterval: 0.2)
+
+        // Get current app bundle identifier
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        let bundleId = frontApp?.bundleIdentifier ?? ""
+
+        // Special handling for iTerm2
+        if bundleId == "com.googlecode.iterm2" {
+            Logger.log("Detected iTerm2, using AppleScript injection", log: Logger.general)
+            let script = """
+            tell application "iTerm2"
+                tell current session of current window
+                    write text "\(text.replacingOccurrences(of: "\"", with: "\\\""))"
+                end tell
+            end tell
+            """
+            var err: NSDictionary?
+            NSAppleScript(source: script)?.executeAndReturnError(&err)
+
+            if let err = err {
+                Logger.log("iTerm2 AppleScript error: \(err.description)", log: Logger.general, type: .error)
+            } else {
+                Logger.log("Successfully sent text to iTerm2 via AppleScript", log: Logger.general)
+                return true
+            }
+        }
+
+        // Try to use Accessibility API to insert text directly
+        Logger.log("Attempting to paste using Accessibility API...", log: Logger.general)
+
+        let systemWideElement = AXUIElementCreateSystemWide()
+        var focusedElement: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedElement)
+
+        if result == .success, let element = focusedElement {
+            Logger.log("Found focused element, attempting to insert text", log: Logger.general)
+            let axElement = element as! AXUIElement
+
+            // Try to set the value directly
+            let valueResult = AXUIElementSetAttributeValue(axElement, kAXValueAttribute as CFString, text as CFTypeRef)
+
+            if valueResult == .success {
+                Logger.log("Successfully inserted text via Accessibility API", log: Logger.general)
+                return true
+            } else {
+                Logger.log("Failed to set value via Accessibility (error: \(valueResult.rawValue)), falling back to keyboard events", log: Logger.general)
+            }
         } else {
-            if GenericHelper.logSensitiveData() {
-                Logger.log("Auto pasted: \(text)", log: Logger.general)
-            }
-            return true
+            Logger.log("No focused element found (error: \(result.rawValue)), using keyboard events", log: Logger.general)
         }
+
+        // Fallback: Use CGEvent to simulate Cmd+V
+        Logger.log("Using CGEvent fallback to simulate Cmd+V...", log: Logger.general)
+        let source = CGEventSource(stateID: .combinedSessionState)
+
+        let vKeyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true)
+        let vKeyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false)
+
+        vKeyDown?.flags = .maskCommand
+        vKeyUp?.flags = .maskCommand
+
+        vKeyDown?.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.05)
+        vKeyUp?.post(tap: .cghidEventTap)
+
+        Logger.log("CGEvent paste complete", log: Logger.general)
+        return true
     }
 
     static func sendEnter() -> Bool {

@@ -104,6 +104,7 @@ final class AudioRecorder: NSObject, ObservableObject {
     }
 
     func reset() {
+        Logger.debugLog("=== RESET CALLED (this blocks notifications) ===", log: Logger.audio)
         resetPending = true
         stop()
         wait()
@@ -112,6 +113,7 @@ final class AudioRecorder: NSObject, ObservableObject {
         recorder = nil
         isRecording = false
         resetPending = false
+        Logger.log("Reset complete, resetPending now false", log: Logger.audio)
     }
 
     deinit {
@@ -135,14 +137,17 @@ extension AudioRecorder: AVAudioRecorderDelegate {
 
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         isRecording = false
-        Logger.log("Recording finished: \(flag)", log: Logger.audio)
+        Logger.log("Recording finished: \(flag), resetPending: \(resetPending)", log: Logger.audio)
 
         if !resetPending {
             if !flag {
                 NotificationCenter.default.post(name: .recordingError, object: "Recording failed")
             } else {
+                Logger.log("Posting didFinishRecording notification with URL: \(outputURL?.path ?? "nil")", log: Logger.audio)
                 NotificationCenter.default.post(name: .didFinishRecording, object: outputURL)
             }
+        } else {
+            Logger.log("NOTIFICATION BLOCKED: resetPending is true", log: Logger.audio, type: .error)
         }
     }
 }

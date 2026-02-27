@@ -260,19 +260,23 @@ struct MicrophoneView: View {
             startedByHotkey = false
         }
         .onReceive(NotificationCenter.default.publisher(for: .didFinishRecording)) { notif in
+            Logger.debugLog("=== RECEIVED didFinishRecording NOTIFICATION ===", log: Logger.audio)
             if overlayShown {
                 RecordingOverlayManager.shared.hide()
                 overlayShown = false
             }
 
             if let fileUrl = notif.object as? URL {
+                Logger.log("File URL: \(fileUrl.path)", log: Logger.audio)
                 if !GenericHelper.fileExists(file: fileUrl) {
                     Logger.log("Recording file \(fileUrl.path) not found", log: Logger.audio, type: .error)
                     resetState(error: "Recording file not found. Please try again.")
                     return
                 }
-
+                Logger.log("File exists, calling transcribeAudio", log: Logger.audio)
                 transcribeAudio(url: fileUrl, source: .microphone)
+            } else {
+                Logger.log("ERROR: No file URL in notification", log: Logger.audio, type: .error)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .recordingError)) { notif in
@@ -334,17 +338,22 @@ struct MicrophoneView: View {
     }
 
     private func transcribeAudio(url: URL, source: TranscriptionSource, filename: String? = nil) {
+        Logger.debugLog("=== TRANSCRIBE AUDIO CALLED ===", log: Logger.audio)
         if isTranscribing {
             Logger.log("Already transcribing", log: Logger.audio)
             resetState(error: "Already transcribing. Please wait for the current transcription to finish.")
             return
         }
         isTranscribing = true
+        Logger.log("Starting transcription task", log: Logger.audio)
 
         Task {
             do {
+                Logger.log("Creating voice to text model", log: Logger.audio)
                 let voiceToTextModel = VoiceToTextFactory.createVoiceToText()
+                Logger.log("Processing audio file: \(url.path)", log: Logger.audio)
                 let text = try await voiceToTextModel.process(filepath: url.path)
+                Logger.log("Transcription complete, text length: \(text.count)", log: Logger.audio)
 
                 audio.reset()
                 if GenericHelper.logSensitiveData() {
@@ -403,16 +412,27 @@ struct MicrophoneView: View {
     }
 
     private func processText(text: String, source: TranscriptionSource, filename: String? = nil) async {
+        Logger.debugLog("=== PROCESS TEXT CALLED ===", log: Logger.audio)
+        Logger.log("Text length: \(text.count)", log: Logger.audio)
         defer {
             self.isTranscribing = false
             self.isProcessing = false
         }
 
+        Logger.log("Copying to clipboard", log: Logger.audio)
         GenericHelper.copyToClipboard(text: text)
-        let pasted = GenericHelper.paste(text: text)
-        
-        if pasted && settings.autoEnter {
-            _ = GenericHelper.sendEnter()
+
+        var pasted = false
+        if settings.autoPaste {
+            Logger.log("Calling paste function", log: Logger.audio)
+            pasted = GenericHelper.paste(text: text)
+            Logger.log("Paste returned: \(pasted)", log: Logger.audio)
+
+            if pasted && settings.autoEnter {
+                _ = GenericHelper.sendEnter()
+            }
+        } else {
+            Logger.log("Auto-paste disabled in settings", log: Logger.audio)
         }
 
         self.resultText = text

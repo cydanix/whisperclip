@@ -36,6 +36,27 @@ public enum Logger {
 
     }
 
+    /// Log a debug message (only if debug logging is enabled in settings)
+    /// - Parameters:
+    ///   - message: The message to log
+    ///   - log: The OSLog instance to use (defaults to general)
+    ///   - type: The type of log message (defaults to .debug)
+    ///   - file: The file name where the log was called (automatically captured)
+    ///   - function: The function name where the log was called (automatically captured)
+    ///   - line: The line number where the log was called (automatically captured)
+    public static func debugLog(_ message: String,
+                               log: OSLog = Logger.general,
+                               type: OSLogType = .debug,
+                               file: String = #file,
+                               function: String = #function,
+                               line: Int = #line) {
+        // Only log if debug logging is enabled
+        guard SettingsStore.shared.debugLogging else { return }
+
+        // Use the regular log function
+        self.log(message, log: log, type: type, file: file, function: function, line: line)
+    }
+
     private static func formatLogMessage(_ message: String, log: OSLog, type: OSLogType, file: String, function: String, line: Int) -> String {
         let category: String
         switch log {
